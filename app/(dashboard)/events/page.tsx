@@ -25,19 +25,27 @@ export default function EventsPage() {
   }, []);
 
   async function loadEvents() {
-    const { data: eventsData } = await supabase
+    const { data: eventsData, error } = await supabase
       .from("events")
       .select("*")
       .order("event_date", { ascending: false, nullsFirst: false });
+
+    if (error) {
+      console.error("[EventsPage] Failed to load events:", error.message, error);
+    }
 
     if (eventsData) {
       // Get total spent for each event
       const eventsWithSpent = await Promise.all(
         eventsData.map(async (event) => {
-          const { data: ledgerData } = await supabase
+          const { data: ledgerData, error: ledgerError } = await supabase
             .from("ledger")
             .select("amount, txn_type")
             .eq("event_id", event.id);
+
+          if (ledgerError) {
+            console.error("[EventsPage] Failed to load ledger for event:", event.id, ledgerError.message, ledgerError);
+          }
 
           const total_spent = (ledgerData || []).reduce((sum, entry) => {
             return entry.txn_type === "REFUND" ? sum - Number(entry.amount) : sum + Number(entry.amount);

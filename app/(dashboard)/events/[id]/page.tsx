@@ -36,6 +36,10 @@ export default function EventDetailPage() {
       supabase.from("ledger").select("*, vendor:vendors(*)").eq("event_id", eventId).order("recorded_at", { ascending: false }),
     ]);
 
+    if (eventRes.error) console.error("[EventDetail] Failed to load event:", eventRes.error.message, eventRes.error);
+    if (contractsRes.error) console.error("[EventDetail] Failed to load contracts:", contractsRes.error.message, contractsRes.error);
+    if (ledgerRes.error) console.error("[EventDetail] Failed to load ledger:", ledgerRes.error.message, ledgerRes.error);
+
     if (eventRes.data) setEvent(eventRes.data);
     if (contractsRes.data) setContracts(contractsRes.data as any);
     if (ledgerRes.data) setLedgerEntries(ledgerRes.data as any);

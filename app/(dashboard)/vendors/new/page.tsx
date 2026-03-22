@@ -50,7 +50,9 @@ export default function NewVendorPage() {
       .select()
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("[NewVendor] Failed to create vendor:", error.message, error);
+    } else if (data) {
       router.push(`/vendors/${data.id}`);
     }
     setLoading(false);

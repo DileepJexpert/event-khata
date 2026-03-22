@@ -31,10 +31,11 @@ export default function AddVendorToEventPage() {
   }, []);
 
   async function loadVendors() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("vendors")
       .select("*")
       .order("name");
+    if (error) console.error("[AddVendor] Failed to load vendors:", error.message, error);
     if (data) setVendors(data);
     setLoading(false);
   }
@@ -51,7 +52,9 @@ export default function AddVendorToEventPage() {
       description: description || null,
     });
 
-    if (!error) {
+    if (error) {
+      console.error("[AddVendor] Failed to insert contract:", error.message, error);
+    } else {
       router.push(`/events/${eventId}`);
     }
     setSaving(false);

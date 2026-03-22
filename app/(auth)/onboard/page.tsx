@@ -39,6 +39,7 @@ export default function OnboardPage() {
     });
 
     if (insertError) {
+      console.error("[Onboard] Failed to create agency:", insertError.message, insertError);
       setError(insertError.message);
       setLoading(false);
       return;

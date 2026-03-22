@@ -52,20 +52,22 @@ export default function QuickPayPage() {
   }, [selectedEvent]);
 
   async function loadEvents() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("events")
       .select("*")
       .eq("status", "active")
       .order("event_date", { ascending: false, nullsFirst: false });
+    if (error) console.error("[QuickPay] Failed to load events:", error.message, error);
     if (data) setEvents(data);
     setLoading(false);
   }
 
   async function loadVendors(eventId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("contracts")
       .select("*, vendor:vendors(*)")
       .eq("event_id", eventId);
+    if (error) console.error("[QuickPay] Failed to load vendors:", error.message, error);
     if (data) setVendors(data as any);
   }
 
@@ -93,6 +95,7 @@ export default function QuickPayPage() {
     });
 
     if (error) {
+      console.error("[QuickPay] Failed to save payment:", error.message, error);
       addToast({ title: "Failed to save payment", description: error.message, variant: "destructive" });
     } else {
       setSaved({

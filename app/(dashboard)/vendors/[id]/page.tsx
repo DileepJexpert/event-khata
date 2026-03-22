@@ -30,6 +30,9 @@ export default function VendorDetailPage() {
       supabase.from("ledger").select("*, event:events(*)").eq("vendor_id", vendorId).order("recorded_at", { ascending: false }),
     ]);
 
+    if (vendorRes.error) console.error("[VendorDetail] Failed to load vendor:", vendorRes.error.message, vendorRes.error);
+    if (paymentsRes.error) console.error("[VendorDetail] Failed to load payments:", paymentsRes.error.message, paymentsRes.error);
+
     if (vendorRes.data) setVendor(vendorRes.data);
     if (paymentsRes.data) setPayments(paymentsRes.data as any);
     setLoading(false);
