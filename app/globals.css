@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-white text-navy-900 antialiased;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  /* Safe area insets for PWA */
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: calc(4.5rem + var(--safe-area-bottom));
+  }
+}

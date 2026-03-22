@@ -1,0 +1,188 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { VendorPaymentCard } from "@/components/vendor-payment-card";
+import { BudgetDonut } from "@/components/budget-donut";
+import { ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone } from "lucide-react";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import type { Event, Vendor, Contract, LedgerEntry } from "@/lib/types";
+
+export default function EventDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const eventId = params.id as string;
+  const supabase = createClient();
+
+  const [event, setEvent] = useState<Event | null>(null);
+  const [contracts, setContracts] = useState<(Contract & { vendor: Vendor })[]>([]);
+  const [ledgerEntries, setLedgerEntries] = useState<(LedgerEntry & { vendor: Vendor })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, [eventId]);
+
+  async function loadData() {
+    const [eventRes, contractsRes, ledgerRes] = await Promise.all([
+      supabase.from("events").select("*").eq("id", eventId).single(),
+      supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
+      supabase.from("ledger").select("*, vendor:vendors(*)").eq("event_id", eventId).order("recorded_at", { ascending: false }),
+    ]);
+
+    if (eventRes.data) setEvent(eventRes.data);
+    if (contractsRes.data) setContracts(contractsRes.data as any);
+    if (ledgerRes.data) setLedgerEntries(ledgerRes.data as any);
+    setLoading(false);
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4 px-4 pt-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="px-4 pt-4 text-center">
+        <p>Event not found.</p>
+        <Button asChild className="mt-4">
+          <Link href="/events">Back to Events</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const totalSpent = ledgerEntries.reduce((sum, e) => {
+    return e.txn_type === "REFUND" ? sum - Number(e.amount) : sum + Number(e.amount);
+  }, 0);
+
+  // Group payments by vendor
+  const vendorPayments = new Map<string, number>();
+  ledgerEntries.forEach((entry) => {
+    const current = vendorPayments.get(entry.vendor_id) || 0;
+    vendorPayments.set(
+      entry.vendor_id,
+      entry.txn_type === "REFUND" ? current - Number(entry.amount) : current + Number(entry.amount)
+    );
+  });
+
+  return (
+    <div className="px-4 pt-4">
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-3">
+        <Link href="/events" className="rounded-full p-2 hover:bg-navy-100">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold">{event.client_name}</h1>
+          <div className="flex items-center gap-2">
+            <Badge variant={event.status === "active" ? "success" : "secondary"}>
+              {event.status}
+            </Badge>
+            <span className="text-sm capitalize text-navy-500">{event.event_type}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Event Info */}
+      <div className="mb-4 flex flex-wrap gap-3 text-sm text-navy-500">
+        {event.event_date && (
+          <span className="flex items-center gap-1">
+            <CalendarDays className="h-4 w-4" /> {formatDate(event.event_date)}
+          </span>
+        )}
+        {event.venue && (
+          <span className="flex items-center gap-1">
+            <MapPin className="h-4 w-4" /> {event.venue}
+          </span>
+        )}
+        {event.client_phone && (
+          <a href={`tel:${event.client_phone}`} className="flex items-center gap-1 text-navy-700">
+            <Phone className="h-4 w-4" /> {event.client_phone}
+          </a>
+        )}
+      </div>
+
+      {/* Budget Summary */}
+      {event.total_budget && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <BudgetDonut totalBudget={Number(event.total_budget)} totalSpent={totalSpent} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions */}
+      <div className="mb-4 flex gap-2">
+        <Button asChild className="flex-1" variant="outline">
+          <Link href={`/events/${eventId}/add-vendor`}>
+            <Plus className="mr-2 h-4 w-4" /> Add Vendor
+          </Link>
+        </Button>
+        <Button asChild className="flex-1" variant="outline">
+          <Link href={`/events/${eventId}/share`}>
+            <Share2 className="mr-2 h-4 w-4" /> Share
+          </Link>
+        </Button>
+      </div>
+
+      {/* Vendors */}
+      {contracts.length > 0 && (
+        <div className="mb-4">
+          <h2 className="mb-3 text-lg font-semibold">Vendors ({contracts.length})</h2>
+          <div className="space-y-3">
+            {contracts.map((contract) => (
+              <VendorPaymentCard
+                key={contract.id}
+                vendor={contract.vendor}
+                agreedAmount={Number(contract.agreed_amount)}
+                totalPaid={vendorPayments.get(contract.vendor_id) || 0}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Payment History */}
+      {ledgerEntries.length > 0 && (
+        <div className="mb-4">
+          <h2 className="mb-3 text-lg font-semibold">Payment History</h2>
+          <div className="space-y-2">
+            {ledgerEntries.map((entry) => (
+              <Card key={entry.id}>
+                <CardContent className="flex items-center justify-between p-3">
+                  <div>
+                    <p className="font-medium">{(entry.vendor as any)?.name || "Vendor"}</p>
+                    <div className="flex gap-2 text-xs text-navy-500">
+                      <Badge variant="secondary" className="text-xs">{entry.payment_mode}</Badge>
+                      <Badge variant={entry.txn_type === "REFUND" ? "warning" : "secondary"} className="text-xs">
+                        {entry.txn_type}
+                      </Badge>
+                      <span>{formatDateTime(entry.recorded_at)}</span>
+                    </div>
+                    {entry.notes && <p className="mt-1 text-xs text-navy-500">{entry.notes}</p>}
+                  </div>
+                  <span className={`text-lg font-bold ${entry.txn_type === "REFUND" ? "text-red-500" : "text-emerald-600"}`}>
+                    {entry.txn_type === "REFUND" ? "-" : "+"}{formatCurrency(Number(entry.amount))}
+                  </span>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
