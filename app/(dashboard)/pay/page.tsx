@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/currency-input";
 import { WhatsAppShare } from "@/components/whatsapp-share";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Check, IndianRupee, Plus } from "lucide-react";
+import { Loader2, Check, IndianRupee, Plus, Camera } from "lucide-react";
 import { formatCurrency, formatDate, PAYMENT_MODES, TXN_TYPES } from "@/lib/utils";
 import { getPaymentReceiptMessage } from "@/lib/whatsapp";
 import type { Event, Vendor, Contract } from "@/lib/types";
@@ -41,6 +41,8 @@ export default function QuickPayPage() {
   const [txnType, setTxnType] = useState("ADVANCE");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -75,6 +77,16 @@ export default function QuickPayPage() {
     setVendorsLoading(false);
   }
 
+  function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReceiptFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setReceiptPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  }
+
   async function handleSave() {
     if (!selectedEvent || !selectedVendor || !amount) return;
     setSaving(true);
@@ -86,6 +98,20 @@ export default function QuickPayPage() {
     const contract = vendors.find((v) => v.vendor_id === selectedVendor);
     const event = events.find((e) => e.id === selectedEvent);
 
+    // Upload receipt if provided
+    let receiptUrl: string | null = null;
+    if (receiptFile) {
+      const ext = receiptFile.name.split(".").pop();
+      const path = `receipts/${selectedEvent}/${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("receipts")
+        .upload(path, receiptFile);
+      if (uploadData && !uploadError) {
+        const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(path);
+        receiptUrl = urlData?.publicUrl || null;
+      }
+    }
+
     const { error } = await supabase.from("ledger").insert({
       agency_id: user.id,
       event_id: selectedEvent,
@@ -96,6 +122,7 @@ export default function QuickPayPage() {
       payment_mode: paymentMode,
       reference_number: reference || null,
       notes: notes || null,
+      receipt_url: receiptUrl,
     });
 
     if (error) {
@@ -124,6 +151,8 @@ export default function QuickPayPage() {
     setTxnType("ADVANCE");
     setReference("");
     setNotes("");
+    setReceiptFile(null);
+    setReceiptPreview(null);
   }
 
   // Success screen
@@ -310,6 +339,36 @@ export default function QuickPayPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
               />
+            </div>
+
+            {/* Receipt Upload */}
+            <div className="space-y-2">
+              <Label>Receipt / Photo (optional)</Label>
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-navy-200 p-4 transition-colors hover:border-navy-400">
+                <Camera className="h-6 w-6 text-navy-400" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-navy-700">
+                    {receiptFile ? receiptFile.name : "Tap to attach receipt"}
+                  </p>
+                  <p className="text-xs text-navy-400">Photo, screenshot or PDF</p>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  onChange={handleReceiptChange}
+                  className="hidden"
+                />
+              </label>
+              {receiptPreview && (
+                <div className="relative">
+                  <img src={receiptPreview} alt="Receipt" className="max-h-32 rounded-lg object-cover" />
+                  <button onClick={() => { setReceiptFile(null); setReceiptPreview(null); }}
+                    className="absolute right-1 top-1 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Save Button */}

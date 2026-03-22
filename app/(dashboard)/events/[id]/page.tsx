@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VendorPaymentCard } from "@/components/vendor-payment-card";
 import { BudgetDonut } from "@/components/budget-donut";
-import { ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone } from "lucide-react";
+import {
+  ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
+  ListChecks, Users, Clock, CreditCard, PartyPopper,
+} from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import type { Event, Vendor, Contract, LedgerEntry } from "@/lib/types";
 
@@ -128,18 +131,47 @@ export default function EventDetailPage() {
         </Card>
       )}
 
-      {/* Actions */}
+      {/* Quick Actions */}
       <div className="mb-4 flex gap-2">
         <Button asChild className="flex-1" variant="outline">
           <Link href={`/events/${eventId}/add-vendor`}>
             <Plus className="mr-2 h-4 w-4" /> Add Vendor
           </Link>
         </Button>
-        <Button asChild className="flex-1" variant="outline">
-          <Link href={`/events/${eventId}/share`}>
-            <Share2 className="mr-2 h-4 w-4" /> Share
+        <Button asChild variant="outline">
+          <Link href={`/events/${eventId}/edit`}>
+            <Pencil className="h-4 w-4" />
           </Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href={`/events/${eventId}/share`}>
+            <Share2 className="h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+
+      {/* Feature Grid */}
+      <div className="mb-4 grid grid-cols-4 gap-2">
+        <Link href={`/events/${eventId}/sub-events`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+          <PartyPopper className="h-5 w-5 text-pink-600" />
+          <span className="text-[10px] font-medium text-navy-700">Functions</span>
+        </Link>
+        <Link href={`/events/${eventId}/tasks`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+          <ListChecks className="h-5 w-5 text-blue-600" />
+          <span className="text-[10px] font-medium text-navy-700">Checklist</span>
+        </Link>
+        <Link href={`/events/${eventId}/guests`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+          <Users className="h-5 w-5 text-purple-600" />
+          <span className="text-[10px] font-medium text-navy-700">Guests</span>
+        </Link>
+        <Link href={`/events/${eventId}/timeline`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+          <Clock className="h-5 w-5 text-amber-600" />
+          <span className="text-[10px] font-medium text-navy-700">Timeline</span>
+        </Link>
+        <Link href={`/events/${eventId}/payment-schedule`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+          <CreditCard className="h-5 w-5 text-emerald-600" />
+          <span className="text-[10px] font-medium text-navy-700">Payments</span>
+        </Link>
       </div>
 
       {/* Vendors */}
