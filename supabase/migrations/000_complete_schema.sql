@@ -1,7 +1,29 @@
 -- ============================================
 -- Event Khata - Complete Database Schema
--- Run this ONCE on a fresh Supabase project
+-- Safe to run even if some tables already exist
+-- Will DROP all existing tables and recreate
+-- ⚠️  WARNING: This deletes ALL existing data!
 -- ============================================
+
+-- ============================================
+-- DROP ALL EXISTING TABLES (reverse dependency order)
+-- ============================================
+DROP TABLE IF EXISTS invoices CASCADE;
+DROP TABLE IF EXISTS timeline_items CASCADE;
+DROP TABLE IF EXISTS leads CASCADE;
+DROP TABLE IF EXISTS guests CASCADE;
+DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS payment_schedules CASCADE;
+DROP TABLE IF EXISTS client_tokens CASCADE;
+DROP TABLE IF EXISTS ledger CASCADE;
+DROP TABLE IF EXISTS contracts CASCADE;
+DROP TABLE IF EXISTS sub_events CASCADE;
+DROP TABLE IF EXISTS vendors CASCADE;
+DROP TABLE IF EXISTS events CASCADE;
+DROP TABLE IF EXISTS agencies CASCADE;
+
+-- Drop existing trigger function
+DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
 
 -- ============================================
 -- 1. AGENCIES (tenants)
