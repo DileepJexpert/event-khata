@@ -27,12 +27,9 @@ export default function OnboardPage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Not authenticated. Please login again.");
-      setLoading(false);
-      return;
-    }
+    // DEV MODE: Use dev user instead of auth
+    const { getDevUser } = await import("@/lib/dev-user");
+    const user = getDevUser();
 
     const { error: insertError } = await supabase.from("agencies").insert({
       id: user.id,
