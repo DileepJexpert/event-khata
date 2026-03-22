@@ -73,8 +73,9 @@ export default function QuickPayPage() {
     if (!selectedEvent || !selectedVendor || !amount) return;
     setSaving(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    // DEV MODE: Use dev user instead of auth
+    const { getDevUser } = await import("@/lib/dev-user");
+    const user = getDevUser();
 
     const contract = vendors.find((v) => v.vendor_id === selectedVendor);
     const event = events.find((e) => e.id === selectedEvent);

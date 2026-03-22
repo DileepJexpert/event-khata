@@ -30,8 +30,9 @@ export default function NewEventPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    // DEV MODE: Use dev user instead of auth
+    const { getDevUser } = await import("@/lib/dev-user");
+    const user = getDevUser();
 
     const { data, error } = await supabase
       .from("events")
