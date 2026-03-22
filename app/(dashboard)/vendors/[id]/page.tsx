@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Phone, CreditCard } from "lucide-react";
+import { ArrowLeft, Phone, CreditCard, Pencil, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { Vendor, LedgerEntry, Event } from "@/lib/types";
 
@@ -60,7 +61,7 @@ export default function VendorDetailPage() {
         <Link href="/vendors" className="rounded-full p-2 hover:bg-navy-100">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold">{vendor.name}</h1>
           {vendor.category && (
             <Badge variant="secondary" className="capitalize">
@@ -68,6 +69,18 @@ export default function VendorDetailPage() {
             </Badge>
           )}
         </div>
+        <Link href={`/vendors/${vendorId}/edit`} className="rounded-full p-2 hover:bg-navy-100">
+          <Pencil className="h-4 w-4" />
+        </Link>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="mb-4 flex gap-2">
+        <Button asChild variant="outline" className="flex-1">
+          <Link href={`/vendors/${vendorId}/ledger`}>
+            <BookOpen className="mr-2 h-4 w-4" /> View Ledger
+          </Link>
+        </Button>
       </div>
 
       {/* Contact Info */}
