@@ -24,18 +24,22 @@ export default function VendorsPage() {
   }, []);
 
   async function loadVendors() {
-    const { data: vendorsData } = await supabase
+    const { data: vendorsData, error } = await supabase
       .from("vendors")
       .select("*")
       .order("name");
 
+    if (error) console.error("[VendorsPage] Failed to load vendors:", error.message, error);
+
     if (vendorsData) {
       const vendorsWithPaid = await Promise.all(
         vendorsData.map(async (vendor) => {
-          const { data: ledgerData } = await supabase
+          const { data: ledgerData, error: ledgerError } = await supabase
             .from("ledger")
             .select("amount, txn_type")
             .eq("vendor_id", vendor.id);
+
+          if (ledgerError) console.error("[VendorsPage] Failed to load ledger for vendor:", vendor.id, ledgerError.message, ledgerError);
 
           const total_paid = (ledgerData || []).reduce((sum, entry) => {
             return entry.txn_type === "REFUND" ? sum - Number(entry.amount) : sum + Number(entry.amount);

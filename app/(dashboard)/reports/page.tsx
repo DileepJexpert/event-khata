@@ -41,6 +41,10 @@ export default function ReportsPage() {
       supabase.from("vendors").select("id, name, category"),
     ]);
 
+    if (eventsRes.error) console.error("[Reports] Failed to load events:", eventsRes.error.message, eventsRes.error);
+    if (ledgerRes.error) console.error("[Reports] Failed to load ledger:", ledgerRes.error.message, ledgerRes.error);
+    if (vendorsRes.error) console.error("[Reports] Failed to load vendors:", vendorsRes.error.message, vendorsRes.error);
+
     const events = eventsRes.data || [];
     const ledger = ledgerRes.data || [];
     const vendors = vendorsRes.data || [];

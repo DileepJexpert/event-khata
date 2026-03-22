@@ -49,7 +49,9 @@ export default function NewEventPage() {
       .select()
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.error("[NewEvent] Failed to create event:", error.message, error);
+    } else if (data) {
       router.push(`/events/${data.id}`);
     }
     setLoading(false);

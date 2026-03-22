@@ -30,6 +30,7 @@ export default function QuickPayPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [vendors, setVendors] = useState<(Contract & { vendor: Vendor })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vendorsLoading, setVendorsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<SavedPayment | null>(null);
 
@@ -52,21 +53,26 @@ export default function QuickPayPage() {
   }, [selectedEvent]);
 
   async function loadEvents() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("events")
       .select("*")
       .eq("status", "active")
       .order("event_date", { ascending: false, nullsFirst: false });
+    if (error) console.error("[QuickPay] Failed to load events:", error.message, error);
     if (data) setEvents(data);
     setLoading(false);
   }
 
   async function loadVendors(eventId: string) {
-    const { data } = await supabase
+    setVendorsLoading(true);
+    const { data, error } = await supabase
       .from("contracts")
       .select("*, vendor:vendors(*)")
       .eq("event_id", eventId);
+    if (error) console.error("[QuickPay] Failed to load vendors:", error.message, error);
+    console.log("[QuickPay] Loaded contracts for event:", eventId, "count:", data?.length, "data:", data);
     if (data) setVendors(data as any);
+    setVendorsLoading(false);
   }
 
   async function handleSave() {
@@ -93,6 +99,7 @@ export default function QuickPayPage() {
     });
 
     if (error) {
+      console.error("[QuickPay] Failed to save payment:", error.message, error);
       addToast({ title: "Failed to save payment", description: error.message, variant: "destructive" });
     } else {
       setSaved({
@@ -195,8 +202,15 @@ export default function QuickPayPage() {
           <div className="space-y-2">
             <Label>Select Vendor *</Label>
             <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-1">
-              {vendors.length === 0 ? (
-                <p className="p-3 text-sm text-navy-400">No vendors assigned to this event.</p>
+              {vendorsLoading ? (
+                <p className="p-3 text-sm text-navy-400">Loading vendors...</p>
+              ) : vendors.length === 0 ? (
+                <div className="p-3 text-sm text-navy-400">
+                  <p>No vendors assigned to this event.</p>
+                  <a href={`/events/${selectedEvent}/add-vendor`} className="mt-1 inline-block text-navy-900 underline font-medium">
+                    + Add a vendor to this event first
+                  </a>
+                </div>
               ) : (
                 vendors.map((contract) => (
                   <button
