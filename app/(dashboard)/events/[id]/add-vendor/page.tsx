@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/currency-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Loader2, Plus, Save } from "lucide-react";
-import type { Vendor } from "@/lib/types";
+import type { Vendor, SubEvent } from "@/lib/types";
 
 export default function AddVendorToEventPage() {
   const params = useParams();
@@ -19,7 +19,9 @@ export default function AddVendorToEventPage() {
   const supabase = createClient();
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [subEvents, setSubEvents] = useState<SubEvent[]>([]);
   const [selectedVendor, setSelectedVendor] = useState("");
+  const [selectedFunction, setSelectedFunction] = useState("");
   const [agreedAmount, setAgreedAmount] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,16 +29,17 @@ export default function AddVendorToEventPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    loadVendors();
+    loadData();
   }, []);
 
-  async function loadVendors() {
-    const { data, error } = await supabase
-      .from("vendors")
-      .select("*")
-      .order("name");
-    if (error) console.error("[AddVendor] Failed to load vendors:", error.message, error);
-    if (data) setVendors(data);
+  async function loadData() {
+    const [vRes, seRes] = await Promise.all([
+      supabase.from("vendors").select("*").order("name"),
+      supabase.from("sub_events").select("*").eq("event_id", eventId).order("sort_order"),
+    ]);
+    if (vRes.error) console.error("[AddVendor] Failed to load vendors:", vRes.error.message);
+    if (vRes.data) setVendors(vRes.data);
+    if (seRes.data) setSubEvents(seRes.data);
     setLoading(false);
   }
 
@@ -50,6 +53,7 @@ export default function AddVendorToEventPage() {
       vendor_id: selectedVendor,
       agreed_amount: Number(agreedAmount),
       description: description || null,
+      sub_event_id: selectedFunction || null,
     });
 
     if (error) {
@@ -126,6 +130,24 @@ export default function AddVendorToEventPage() {
             placeholder="0"
           />
         </div>
+
+        {subEvents.length > 0 && (
+          <div className="space-y-2">
+            <Label>Assign to Function (optional)</Label>
+            <select
+              value={selectedFunction}
+              onChange={(e) => setSelectedFunction(e.target.value)}
+              className="w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm focus:border-navy-500 focus:outline-none focus:ring-1 focus:ring-navy-500"
+            >
+              <option value="">— No specific function —</option>
+              {subEvents.map((se) => (
+                <option key={se.id} value={se.id}>
+                  {se.name}{se.date ? ` (${se.date})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>

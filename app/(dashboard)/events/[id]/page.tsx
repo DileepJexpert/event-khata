@@ -14,8 +14,14 @@ import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText,
 } from "lucide-react";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
-import type { Event, Vendor, Contract, LedgerEntry } from "@/lib/types";
+import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
+import type { Event, Vendor, Contract, LedgerEntry, SubEvent } from "@/lib/types";
+
+const TYPE_EMOJI: Record<string, string> = {
+  mehendi: "🌿", sangeet: "🎶", haldi: "💛", wedding: "💍",
+  reception: "🎉", engagement: "💎", cocktail: "🍸",
+  vidaai: "🥺", baraat: "🐴", other: "✨",
+};
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -26,6 +32,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [contracts, setContracts] = useState<(Contract & { vendor: Vendor })[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<(LedgerEntry & { vendor: Vendor })[]>([]);
+  const [subEvents, setSubEvents] = useState<SubEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,10 +40,11 @@ export default function EventDetailPage() {
   }, [eventId]);
 
   async function loadData() {
-    const [eventRes, contractsRes, ledgerRes] = await Promise.all([
+    const [eventRes, contractsRes, ledgerRes, subEventsRes] = await Promise.all([
       supabase.from("events").select("*").eq("id", eventId).single(),
       supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
       supabase.from("ledger").select("*, vendor:vendors(*)").eq("event_id", eventId).order("recorded_at", { ascending: false }),
+      supabase.from("sub_events").select("*").eq("event_id", eventId).order("date", { ascending: true, nullsFirst: false }).order("sort_order"),
     ]);
 
     if (eventRes.error) console.error("[EventDetail] Failed to load event:", eventRes.error.message, eventRes.error);
@@ -46,6 +54,7 @@ export default function EventDetailPage() {
     if (eventRes.data) setEvent(eventRes.data);
     if (contractsRes.data) setContracts(contractsRes.data as any);
     if (ledgerRes.data) setLedgerEntries(ledgerRes.data as any);
+    if (subEventsRes.data) setSubEvents(subEventsRes.data);
     setLoading(false);
   }
 
@@ -177,6 +186,45 @@ export default function EventDetailPage() {
           <span className="text-[10px] font-medium text-navy-700">Documents</span>
         </Link>
       </div>
+
+      {/* Multi-Day Functions */}
+      {subEvents.length > 0 && (
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Functions ({subEvents.length})</h2>
+            <Link href={`/events/${eventId}/sub-events`} className="text-sm font-medium text-navy-600">View All</Link>
+          </div>
+          <div className="space-y-2">
+            {subEvents.slice(0, 5).map((se) => {
+              const dLeft = se.date ? daysUntil(se.date) : null;
+              return (
+                <Link key={se.id} href={`/events/${eventId}/sub-events/${se.id}`}
+                  className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
+                  <span className="text-lg">{TYPE_EMOJI[se.type] || "✨"}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-navy-900">{se.name}</p>
+                    <div className="flex gap-2 text-xs text-navy-500">
+                      {se.date && <span>{formatDate(se.date)}</span>}
+                      {se.start_time && <span>{formatTime(se.start_time)}</span>}
+                      {se.venue && <span>{se.venue}</span>}
+                    </div>
+                  </div>
+                  {se.budget && (
+                    <span className="text-xs font-bold text-navy-700">{formatCurrency(Number(se.budget))}</span>
+                  )}
+                  {dLeft !== null && dLeft >= 0 && dLeft <= 14 && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      dLeft <= 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {dLeft === 0 ? "Today" : `${dLeft}d`}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Vendors */}
       {contracts.length > 0 && (
