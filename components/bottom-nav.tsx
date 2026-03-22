@@ -11,6 +11,7 @@ import {
   FileText,
   Settings,
   ClipboardList,
+  Bell,
 } from "lucide-react";
 
 const navItems = [
@@ -25,6 +26,7 @@ const moreItems = [
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/notifications", label: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

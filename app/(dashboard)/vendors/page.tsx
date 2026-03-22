@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Users, Phone } from "lucide-react";
+import { Plus, Search, Users, Phone, GitCompare } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatCurrency, VENDOR_CATEGORIES } from "@/lib/utils";
 import type { Vendor } from "@/lib/types";
@@ -66,6 +67,11 @@ export default function VendorsPage() {
           <h1 className="text-xl font-bold text-navy-900">Vendors</h1>
           <p className="text-sm text-navy-500">{vendors.length} vendors</p>
         </div>
+        <Link href="/vendors/compare">
+          <Button variant="outline" size="sm">
+            <GitCompare className="mr-1 h-4 w-4" /> Compare
+          </Button>
+        </Link>
       </div>
 
       <div className="mb-4">

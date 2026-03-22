@@ -79,6 +79,11 @@ export default function EventsPage() {
           <p className="text-sm text-navy-500">{events.length} total events</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/events/calendar">
+            <Button variant="outline" size="icon">
+              <CalendarDays className="h-5 w-5" />
+            </Button>
+          </Link>
           <Button variant="ghost" size="icon" onClick={handleLogout}>
             <LogOut className="h-5 w-5" />
           </Button>
