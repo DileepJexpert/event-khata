@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Plus, Loader2, Trash2, Search, Download, Users } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, Search, Download, Users, Upload, MessageCircle } from "lucide-react";
 import { GUEST_SIDES, RSVP_STATUSES, MEAL_PREFERENCES } from "@/lib/utils";
 import Link from "next/link";
 import type { Guest } from "@/lib/types";
@@ -94,6 +94,58 @@ export default function GuestsPage() {
   const totalHeadcount = guests.reduce((sum, g) => sum + 1 + g.plus_count, 0);
   const confirmed = guests.filter((g) => g.rsvp_status === "confirmed").reduce((sum, g) => sum + 1 + g.plus_count, 0);
 
+  async function handleCSVImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split("\n").filter(Boolean);
+    const header = lines[0].toLowerCase();
+    const hasHeader = header.includes("name");
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    const guestsToInsert = dataLines.map((line) => {
+      const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+      return {
+        event_id: eventId,
+        name: cols[0] || "Guest",
+        phone: cols[1] || null,
+        group_name: cols[2] || null,
+        side: (["bride", "groom", "mutual", "other"].includes(cols[3]?.toLowerCase()) ? cols[3].toLowerCase() : "other") as any,
+        rsvp_status: "pending" as const,
+        meal_preference: "no_preference" as const,
+        plus_count: parseInt(cols[4]) || 0,
+      };
+    }).filter((g) => g.name && g.name !== "Guest");
+
+    if (guestsToInsert.length === 0) {
+      addToast({ title: "No guests found in CSV", variant: "destructive" });
+      return;
+    }
+
+    const { error } = await supabase.from("guests").insert(guestsToInsert);
+    if (error) {
+      addToast({ title: "Import failed", description: error.message, variant: "destructive" });
+    } else {
+      addToast({ title: `Imported ${guestsToInsert.length} guests!`, variant: "success" });
+      load();
+    }
+    e.target.value = "";
+  }
+
+  function broadcastWhatsApp() {
+    const guestsWithPhone = guests.filter((g) => g.phone && g.rsvp_status !== "declined");
+    if (guestsWithPhone.length === 0) {
+      addToast({ title: "No guests with phone numbers", variant: "destructive" });
+      return;
+    }
+    // Open WhatsApp for first guest - user can send message and then repeat
+    const phone = guestsWithPhone[0].phone!.replace(/\D/g, "");
+    const normalizedPhone = phone.length === 10 ? `91${phone}` : phone;
+    const message = encodeURIComponent(`Dear ${guestsWithPhone[0].name}, you are cordially invited to our event. Please confirm your attendance. Thank you!`);
+    window.open(`https://wa.me/${normalizedPhone}?text=${message}`, "_blank");
+    addToast({ title: `${guestsWithPhone.length} guests with phone numbers. Opening WhatsApp...`, variant: "success" });
+  }
+
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy-400" /></div>;
 
   return (
@@ -106,6 +158,11 @@ export default function GuestsPage() {
           <h1 className="text-xl font-bold">Guest List</h1>
           <p className="text-sm text-navy-500">{confirmed} confirmed / {totalHeadcount} total headcount</p>
         </div>
+        <Button size="sm" variant="outline" onClick={broadcastWhatsApp} title="WhatsApp Broadcast"><MessageCircle className="h-4 w-4" /></Button>
+        <label className="cursor-pointer">
+          <Button size="sm" variant="outline" asChild><span><Upload className="h-4 w-4" /></span></Button>
+          <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
+        </label>
         <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4" /></Button>
         <Button size="sm" onClick={() => setShowForm(!showForm)}><Plus className="mr-1 h-4 w-4" /> Add</Button>
       </div>
