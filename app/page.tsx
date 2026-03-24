@@ -209,7 +209,7 @@ export default function Home() {
           </h2>
           <div className="space-y-6">
             {[
-              { step: "1", title: "Login with your email", desc: "Quick OTP verification — no passwords needed" },
+              { step: "1", title: "Sign up with email", desc: "Quick signup — just email and password" },
               { step: "2", title: "Create your agency", desc: "Set up your event planning business profile" },
               { step: "3", title: "Add your first event", desc: "Enter client details, budget, and start adding vendors" },
               { step: "4", title: "Track payments", desc: "Record every advance, partial & final payment as it happens" },

@@ -2,7 +2,8 @@ export type Agency = {
   id: string;
   name: string;
   owner_name: string | null;
-  owner_phone: string;
+  owner_phone: string | null;
+  owner_email: string | null;
   subscription_status: "free" | "pro" | "enterprise";
   created_at: string;
 };

@@ -54,6 +54,7 @@ export default function OnboardPage() {
       name: agencyName.trim(),
       owner_name: ownerName.trim() || null,
       owner_phone: ownerPhone.trim() || null,
+      owner_email: userEmail || null,
     });
 
     if (insertError) {

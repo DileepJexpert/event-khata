@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -34,21 +35,37 @@ export default function SettingsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
     setUserId(user.id);
+    setUserEmail(user.email || "");
 
-    const [agencyRes, adminRes] = await Promise.all([
-      supabase.from("agencies").select("*").eq("id", user.id).single(),
-      supabase.from("admin_users").select("id").eq("user_id", user.id).eq("is_active", true).single(),
-    ]);
+    // Load agency data
+    const { data: agencyData, error: agencyError } = await supabase
+      .from("agencies")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-    if (agencyRes.data) {
-      setAgencyName(agencyRes.data.name || "");
-      setOwnerName(agencyRes.data.owner_name || "");
-      setOwnerPhone(agencyRes.data.owner_phone || "");
-      setCity(agencyRes.data.city || "");
-      setState(agencyRes.data.state || "");
-      setSubscription(agencyRes.data.subscription_status || "free");
+    if (agencyData) {
+      setAgencyName(agencyData.name || "");
+      setOwnerName(agencyData.owner_name || "");
+      setOwnerPhone(agencyData.owner_phone || "");
+      setCity(agencyData.city || "");
+      setState(agencyData.state || "");
+      setSubscription(agencyData.subscription_status || "free");
     }
-    if (adminRes.data) setIsAdmin(true);
+
+    // Check admin separately (table may not exist)
+    try {
+      const { data: adminData } = await supabase
+        .from("admin_users")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .single();
+      if (adminData) setIsAdmin(true);
+    } catch {
+      // admin_users table may not exist yet
+    }
+
     setLoading(false);
   }
 
@@ -59,6 +76,7 @@ export default function SettingsPage() {
       name: agencyName,
       owner_name: ownerName,
       owner_phone: ownerPhone,
+      owner_email: userEmail || null,
       city: city || null,
       state: state || null,
     }).eq("id", userId);
@@ -93,6 +111,19 @@ export default function SettingsPage() {
           <span className="text-sm text-slate-400">&rarr;</span>
         </Link>
       )}
+
+      {/* Account Info */}
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100">
+            <Mail className="h-5 w-5 text-navy-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-navy-900">Account</h2>
+            <p className="text-sm text-navy-500">{userEmail}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Agency Profile */}
       <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
