@@ -8,6 +8,7 @@
 -- ============================================
 -- DROP ALL EXISTING TABLES (reverse dependency order)
 -- ============================================
+DROP TABLE IF EXISTS admin_users CASCADE;
 DROP TABLE IF EXISTS invoices CASCADE;
 DROP TABLE IF EXISTS timeline_items CASCADE;
 DROP TABLE IF EXISTS leads CASCADE;
@@ -34,6 +35,9 @@ CREATE TABLE agencies (
   owner_name TEXT,
   owner_phone TEXT UNIQUE NOT NULL,
   subscription_status TEXT DEFAULT 'free' CHECK (subscription_status IN ('free', 'pro', 'enterprise')),
+  city TEXT,
+  state TEXT,
+  last_active_at TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -270,6 +274,19 @@ CREATE TABLE invoices (
 );
 
 -- ============================================
+-- 14. ADMIN USERS (Super Admin access)
+-- ============================================
+CREATE TABLE admin_users (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL,
+  email TEXT,
+  name TEXT NOT NULL,
+  role TEXT DEFAULT 'super_admin' CHECK (role IN ('super_admin', 'support')),
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 CREATE INDEX idx_events_agency ON events(agency_id);
@@ -292,6 +309,7 @@ CREATE INDEX idx_timeline_sub_event ON timeline_items(sub_event_id);
 CREATE INDEX idx_payment_schedules_event ON payment_schedules(event_id);
 CREATE INDEX idx_payment_schedules_contract ON payment_schedules(contract_id);
 CREATE INDEX idx_invoices_event ON invoices(event_id);
+CREATE INDEX idx_admin_users_user_id ON admin_users(user_id);
 
 -- ============================================
 -- TRIGGERS
@@ -336,10 +354,4 @@ ALTER TABLE guests DISABLE ROW LEVEL SECURITY;
 ALTER TABLE leads DISABLE ROW LEVEL SECURITY;
 ALTER TABLE timeline_items DISABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices DISABLE ROW LEVEL SECURITY;
-
--- ============================================
--- SEED: Dev agency
--- ============================================
-INSERT INTO agencies (id, name, owner_name, owner_phone)
-VALUES ('00000000-0000-0000-0000-000000000001', 'Dev Agency', 'Dev User', '+919999999999')
-ON CONFLICT (owner_phone) DO NOTHING;
+ALTER TABLE admin_users DISABLE ROW LEVEL SECURITY;

@@ -6,17 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, User, Phone, Crown } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const supabase = createClient();
   const { addToast } = useToast();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [subscription, setSubscription] = useState("free");
 
   useEffect(() => {
@@ -24,27 +31,37 @@ export default function SettingsPage() {
   }, []);
 
   async function loadSettings() {
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
-    const { data } = await supabase.from("agencies").select("*").eq("id", user.id).single();
-    if (data) {
-      setAgencyName(data.name || "");
-      setOwnerName(data.owner_name || "");
-      setOwnerPhone(data.owner_phone || "");
-      setSubscription(data.subscription_status || "free");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+    setUserId(user.id);
+
+    const [agencyRes, adminRes] = await Promise.all([
+      supabase.from("agencies").select("*").eq("id", user.id).single(),
+      supabase.from("admin_users").select("id").eq("user_id", user.id).eq("is_active", true).single(),
+    ]);
+
+    if (agencyRes.data) {
+      setAgencyName(agencyRes.data.name || "");
+      setOwnerName(agencyRes.data.owner_name || "");
+      setOwnerPhone(agencyRes.data.owner_phone || "");
+      setCity(agencyRes.data.city || "");
+      setState(agencyRes.data.state || "");
+      setSubscription(agencyRes.data.subscription_status || "free");
     }
+    if (adminRes.data) setIsAdmin(true);
     setLoading(false);
   }
 
   async function handleSave() {
+    if (!userId) return;
     setSaving(true);
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
     const { error } = await supabase.from("agencies").update({
       name: agencyName,
       owner_name: ownerName,
       owner_phone: ownerPhone,
-    }).eq("id", user.id);
+      city: city || null,
+      state: state || null,
+    }).eq("id", userId);
 
     if (error) {
       addToast({ title: "Failed to save", description: error.message, variant: "destructive" });
@@ -54,11 +71,28 @@ export default function SettingsPage() {
     setSaving(false);
   }
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy-400" /></div>;
 
   return (
     <div className="px-4 pb-24 pt-4">
       <h1 className="mb-6 text-2xl font-bold text-navy-900">Settings</h1>
+
+      {/* Admin Access */}
+      {isAdmin && (
+        <Link href="/admin" className="mb-6 flex items-center gap-3 rounded-xl bg-slate-900 p-4 text-white shadow-sm">
+          <Shield className="h-5 w-5 text-amber-400" />
+          <div className="flex-1">
+            <p className="font-bold">Super Admin Dashboard</p>
+            <p className="text-sm text-slate-300">View all agencies, platform stats</p>
+          </div>
+          <span className="text-sm text-slate-400">&rarr;</span>
+        </Link>
+      )}
 
       {/* Agency Profile */}
       <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
@@ -80,6 +114,16 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <Label>Phone</Label>
             <Input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} type="tel" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>City</Label>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g., Mumbai" />
+            </div>
+            <div className="space-y-2">
+              <Label>State</Label>
+              <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g., Maharashtra" />
+            </div>
           </div>
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -126,13 +170,18 @@ export default function SettingsPage() {
       </div>
 
       {/* Data */}
-      <div className="rounded-xl bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-navy-900">Data & Privacy</h2>
         <div className="space-y-3">
           <Button variant="outline" size="sm" className="w-full">Export All Data (CSV)</Button>
           <p className="text-xs text-navy-400 text-center">Your data is stored securely and never shared.</p>
         </div>
       </div>
+
+      {/* Logout */}
+      <Button variant="outline" onClick={handleLogout} className="w-full text-red-600 hover:bg-red-50 hover:text-red-700">
+        <LogOut className="mr-2 h-4 w-4" /> Logout
+      </Button>
     </div>
   );
 }

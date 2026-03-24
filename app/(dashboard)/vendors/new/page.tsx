@@ -30,9 +30,8 @@ export default function NewVendorPage() {
     e.preventDefault();
     setLoading(true);
 
-    // DEV MODE: Use dev user instead of auth
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
+    const { requireUser } = await import("@/lib/auth");
+    const user = await requireUser();
 
     const { data, error } = await supabase
       .from("vendors")

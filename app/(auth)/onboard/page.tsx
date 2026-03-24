@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,23 @@ export default function OnboardPage() {
   const [ownerName, setOwnerName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string>("");
 
   const supabase = createClient();
+
+  useEffect(() => {
+    async function getUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+      setUserId(user.id);
+      setUserPhone(user.phone || "");
+    }
+    getUser();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,15 +42,17 @@ export default function OnboardPage() {
       return;
     }
 
-    // DEV MODE: Use dev user instead of auth
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
+    if (!userId) {
+      setError("Not authenticated. Please login again.");
+      setLoading(false);
+      return;
+    }
 
     const { error: insertError } = await supabase.from("agencies").insert({
-      id: user.id,
+      id: userId,
       name: agencyName.trim(),
       owner_name: ownerName.trim() || null,
-      owner_phone: user.phone || "",
+      owner_phone: userPhone,
     });
 
     if (insertError) {
@@ -84,7 +101,7 @@ export default function OnboardPage() {
               />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            <Button type="submit" className="w-full" size="lg" disabled={loading || !userId}>
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

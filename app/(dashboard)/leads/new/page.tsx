@@ -33,8 +33,8 @@ export default function NewLeadPage() {
   async function handleSave() {
     if (!clientName.trim()) return;
     setSaving(true);
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
+    const { requireUser } = await import("@/lib/auth");
+    const user = await requireUser();
     const { error } = await supabase.from("leads").insert({
       agency_id: user.id,
       client_name: clientName.trim(),

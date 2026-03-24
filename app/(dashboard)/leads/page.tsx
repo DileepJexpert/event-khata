@@ -33,8 +33,8 @@ export default function LeadsPage() {
   }
 
   async function convertToEvent(lead: Lead) {
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
+    const { requireUser } = await import("@/lib/auth");
+    const user = await requireUser();
     const { data, error } = await supabase.from("events").insert({
       agency_id: user.id,
       client_name: lead.client_name,
