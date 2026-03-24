@@ -282,7 +282,7 @@ export default function AdminDashboard() {
               <tr className="border-b border-slate-100 text-xs uppercase text-slate-400">
                 <th className="pb-2 pr-4">Agency</th>
                 <th className="pb-2 pr-4">Owner</th>
-                <th className="pb-2 pr-4">Phone</th>
+                <th className="pb-2 pr-4">Email</th>
                 <th className="pb-2 pr-4">Plan</th>
                 <th className="pb-2 pr-4">City</th>
                 <th className="pb-2">Joined</th>
@@ -293,7 +293,7 @@ export default function AdminDashboard() {
                 <tr key={a.id} className="border-b border-slate-50">
                   <td className="py-3 pr-4 font-medium text-slate-900">{a.name}</td>
                   <td className="py-3 pr-4 text-slate-600">{a.owner_name || "—"}</td>
-                  <td className="py-3 pr-4 text-slate-600">{a.owner_phone}</td>
+                  <td className="py-3 pr-4 text-slate-600">{a.owner_email || a.owner_phone || "—"}</td>
                   <td className="py-3 pr-4">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                       a.subscription_status === "pro" ? "bg-emerald-100 text-emerald-700" :

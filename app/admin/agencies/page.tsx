@@ -14,7 +14,8 @@ type AgencyRow = {
   id: string;
   name: string;
   owner_name: string | null;
-  owner_phone: string;
+  owner_phone: string | null;
+  owner_email: string | null;
   subscription_status: string;
   city: string | null;
   state: string | null;
@@ -112,7 +113,8 @@ export default function AgenciesPage() {
       return (
         a.name.toLowerCase().includes(q) ||
         (a.owner_name || "").toLowerCase().includes(q) ||
-        a.owner_phone.includes(q) ||
+        (a.owner_phone || "").includes(q) ||
+        (a.owner_email || "").toLowerCase().includes(q) ||
         (a.city || "").toLowerCase().includes(q)
       );
     })
@@ -172,7 +174,7 @@ export default function AgenciesPage() {
                 <div>
                   <h3 className="text-base font-bold text-slate-900">{a.name}</h3>
                   <p className="text-sm text-slate-500">
-                    {a.owner_name || "No owner"} &middot; {a.owner_phone}
+                    {a.owner_name || "No owner"} &middot; {a.owner_email || a.owner_phone || "—"}
                   </p>
                   {(a.city || a.state) && (
                     <p className="text-xs text-slate-400">{[a.city, a.state].filter(Boolean).join(", ")}</p>
