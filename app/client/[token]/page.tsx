@@ -1,37 +1,106 @@
-import { createClient } from "@supabase/supabase-js";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, MapPin } from "lucide-react";
+import { CalendarDays, MapPin, Loader2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-// Use service role for public access (no RLS)
-function getServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+export default function ClientPortalPage() {
+  const params = useParams();
+  const token = params.token as string;
+  const supabase = createClient();
 
-export default async function ClientPortalPage({
-  params,
-}: {
-  params: { token: string };
-}) {
-  const supabase = getServiceClient();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tokenData, setTokenData] = useState<any>(null);
+  const [event, setEvent] = useState<any>(null);
+  const [categorySpending, setCategorySpending] = useState<Map<string, { spent: number; vendors: Set<string> }>>(new Map());
+  const [totalSpent, setTotalSpent] = useState(0);
 
-  // Get token data
-  const { data: tokenData } = await supabase
-    .from("client_tokens")
-    .select("*, event:events(*)")
-    .eq("token", params.token)
-    .single();
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  if (!tokenData || !tokenData.event) {
+  async function loadData() {
+    // Get token data
+    const { data: td } = await supabase
+      .from("client_tokens")
+      .select("*")
+      .eq("token", token)
+      .single();
+
+    if (!td) {
+      setError("Link Invalid or Expired");
+      setLoading(false);
+      return;
+    }
+
+    // Check expiry
+    if (td.expires_at && new Date(td.expires_at) < new Date()) {
+      setError("Link Expired");
+      setLoading(false);
+      return;
+    }
+
+    // Get event
+    const { data: ev } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", td.event_id)
+      .single();
+
+    if (!ev) {
+      setError("Event not found");
+      setLoading(false);
+      return;
+    }
+
+    setTokenData(td);
+    setEvent(ev);
+
+    // Get ledger data grouped by vendor category
+    const { data: ledger } = await supabase
+      .from("ledger")
+      .select("*, vendor:vendors(name, category)")
+      .eq("event_id", ev.id);
+
+    const entries = ledger || [];
+
+    // Group spending by category
+    const catSpending = new Map<string, { spent: number; vendors: Set<string> }>();
+    entries.forEach((entry: any) => {
+      const category = entry.vendor?.category || "other";
+      const current = catSpending.get(category) || { spent: 0, vendors: new Set() };
+      current.spent += entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
+      if (entry.vendor?.name) current.vendors.add(entry.vendor.name);
+      catSpending.set(category, current);
+    });
+
+    setCategorySpending(catSpending);
+    setTotalSpent(entries.reduce((sum: number, e: any) => {
+      return e.txn_type === "REFUND" ? sum - Number(e.amount) : sum + Number(e.amount);
+    }, 0));
+
+    setLoading(false);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-navy-50">
+        <Loader2 className="h-8 w-8 animate-spin text-navy-400" />
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-navy-50 p-4">
         <Card className="max-w-sm text-center">
           <CardContent className="p-8">
-            <h1 className="mb-2 text-xl font-bold">Link Invalid or Expired</h1>
+            <h1 className="mb-2 text-xl font-bold">{error}</h1>
             <p className="text-sm text-navy-500">
               Please contact your event planner for a new link.
             </p>
@@ -41,47 +110,7 @@ export default async function ClientPortalPage({
     );
   }
 
-  // Check expiry
-  if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-navy-50 p-4">
-        <Card className="max-w-sm text-center">
-          <CardContent className="p-8">
-            <h1 className="mb-2 text-xl font-bold">Link Expired</h1>
-            <p className="text-sm text-navy-500">
-              Please contact your event planner for a new link.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const event = tokenData.event as any;
-
-  // Get ledger data grouped by vendor category
-  const { data: ledger } = await supabase
-    .from("ledger")
-    .select("*, vendor:vendors(name, category)")
-    .eq("event_id", event.id);
-
-  const entries = ledger || [];
-
-  // Group spending by category
-  const categorySpending = new Map<string, { spent: number; vendors: Set<string> }>();
-  entries.forEach((entry: any) => {
-    const category = entry.vendor?.category || "other";
-    const current = categorySpending.get(category) || { spent: 0, vendors: new Set() };
-    current.spent += entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
-    if (entry.vendor?.name) current.vendors.add(entry.vendor.name);
-    categorySpending.set(category, current);
-  });
-
-  const totalSpent = entries.reduce((sum: number, e: any) => {
-    return e.txn_type === "REFUND" ? sum - Number(e.amount) : sum + Number(e.amount);
-  }, 0);
-
-  const budget = Number(event.total_budget) || 0;
+  const budget = Number(event?.total_budget) || 0;
 
   return (
     <div className="min-h-screen bg-navy-50">
@@ -89,14 +118,14 @@ export default async function ClientPortalPage({
         {/* Header */}
         <div className="mb-6 text-center">
           <Badge variant="success" className="mb-2">Live Budget</Badge>
-          <h1 className="text-2xl font-bold text-navy-900">{event.client_name}</h1>
+          <h1 className="text-2xl font-bold text-navy-900">{event?.client_name}</h1>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-sm text-navy-500">
-            {event.event_date && (
+            {event?.event_date && (
               <span className="flex items-center gap-1">
                 <CalendarDays className="h-4 w-4" /> {formatDate(event.event_date)}
               </span>
             )}
-            {event.venue && (
+            {event?.venue && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-4 w-4" /> {event.venue}
               </span>
@@ -135,13 +164,13 @@ export default async function ClientPortalPage({
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold capitalize">{category.replace("_", " ")}</h3>
-                      {tokenData.show_vendor_names && (
+                      {tokenData?.show_vendor_names && (
                         <p className="text-xs text-navy-500">
                           {Array.from(data.vendors).join(", ")}
                         </p>
                       )}
                     </div>
-                    {tokenData.show_vendor_amounts ? (
+                    {tokenData?.show_vendor_amounts ? (
                       <span className="text-lg font-bold text-navy-900">
                         {formatCurrency(data.spent)}
                       </span>

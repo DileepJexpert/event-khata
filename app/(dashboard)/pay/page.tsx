@@ -91,9 +91,8 @@ export default function QuickPayPage() {
     if (!selectedEvent || !selectedVendor || !amount) return;
     setSaving(true);
 
-    // DEV MODE: Use dev user instead of auth
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
+    const { requireUser } = await import("@/lib/auth");
+    const user = await requireUser();
 
     const contract = vendors.find((v) => v.vendor_id === selectedVendor);
     const event = events.find((e) => e.id === selectedEvent);

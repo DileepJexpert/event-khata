@@ -80,8 +80,8 @@ export default function NewInvoicePage() {
   async function handleSave() {
     if (!clientName.trim() || items.length === 0) return;
     setSaving(true);
-    const { getDevUser } = await import("@/lib/dev-user");
-    const user = getDevUser();
+    const { requireUser } = await import("@/lib/auth");
+    const user = await requireUser();
     const { error } = await supabase.from("invoices").insert({
       agency_id: user.id,
       event_id: selectedEvent || null,
