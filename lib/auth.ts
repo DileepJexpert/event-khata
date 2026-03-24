@@ -7,7 +7,7 @@ export async function getCurrentUser() {
   const supabase = createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
-  return { id: user.id, phone: user.phone || "" };
+  return { id: user.id, email: user.email || "" };
 }
 
 export async function requireUser() {
