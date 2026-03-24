@@ -31,3 +31,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Android (Capacitor) build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/public/
+*.apk
+*.aab

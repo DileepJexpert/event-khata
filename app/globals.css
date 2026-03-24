@@ -24,3 +24,11 @@
     padding-bottom: calc(4.5rem + var(--safe-area-bottom));
   }
 }
+
+/* Capacitor keyboard open — hide bottom nav, reduce padding */
+body.keyboard-open nav.fixed.bottom-0 {
+  display: none;
+}
+body.keyboard-open .pb-safe {
+  padding-bottom: 1rem;
+}
