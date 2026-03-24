@@ -11,10 +11,11 @@ import { Building2, Loader2 } from "lucide-react";
 export default function OnboardPage() {
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [userPhone, setUserPhone] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
 
   const supabase = createClient();
 
@@ -26,7 +27,7 @@ export default function OnboardPage() {
         return;
       }
       setUserId(user.id);
-      setUserPhone(user.phone || "");
+      setUserEmail(user.email || "");
     }
     getUser();
   }, []);
@@ -52,7 +53,7 @@ export default function OnboardPage() {
       id: userId,
       name: agencyName.trim(),
       owner_name: ownerName.trim() || null,
-      owner_phone: userPhone,
+      owner_phone: ownerPhone.trim() || null,
     });
 
     if (insertError) {
@@ -100,6 +101,21 @@ export default function OnboardPage() {
                 onChange={(e) => setOwnerName(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="ownerPhone">Phone Number (optional)</Label>
+              <Input
+                id="ownerPhone"
+                type="tel"
+                placeholder="e.g., 98765 43210"
+                value={ownerPhone}
+                onChange={(e) => setOwnerPhone(e.target.value)}
+              />
+            </div>
+            {userEmail && (
+              <p className="text-xs text-navy-400">
+                Logged in as {userEmail}
+              </p>
+            )}
             {error && <p className="text-sm text-red-500">{error}</p>}
             <Button type="submit" className="w-full" size="lg" disabled={loading || !userId}>
               {loading ? (

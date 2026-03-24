@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-type AuthUser = { id: string; phone: string };
+type AuthUser = { id: string; email: string };
 
 export function useAuth(requireAuth = true) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -16,7 +16,7 @@ export function useAuth(requireAuth = true) {
     async function getUser() {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
-        setUser({ id: authUser.id, phone: authUser.phone || "" });
+        setUser({ id: authUser.id, email: authUser.email || "" });
       } else if (requireAuth) {
         router.push("/login");
       }
@@ -26,7 +26,7 @@ export function useAuth(requireAuth = true) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({ id: session.user.id, phone: session.user.phone || "" });
+        setUser({ id: session.user.id, email: session.user.email || "" });
       } else {
         setUser(null);
         if (requireAuth) router.push("/login");

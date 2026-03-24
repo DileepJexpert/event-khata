@@ -5,30 +5,28 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Phone, KeyRound } from "lucide-react";
+import { Loader2, Mail, KeyRound } from "lucide-react";
 
 export default function LoginPage() {
   const supabase = createClient();
-  const [step, setStep] = useState<"phone" | "otp">("phone");
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState<"email" | "otp">("email");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const fullPhone = phone.startsWith("+") ? phone : `+91${phone.replace(/\D/g, "")}`;
-
   async function handleSendOTP(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const cleaned = phone.replace(/\D/g, "");
-    if (cleaned.length < 10) {
-      setError("Enter a valid 10-digit phone number");
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      setError("Enter a valid email address");
       return;
     }
     setLoading(true);
 
     const { error: otpError } = await supabase.auth.signInWithOtp({
-      phone: fullPhone,
+      email: trimmed,
     });
 
     if (otpError) {
@@ -49,9 +47,9 @@ export default function LoginPage() {
     setLoading(true);
 
     const { data, error: verifyError } = await supabase.auth.verifyOtp({
-      phone: fullPhone,
+      email: email.trim().toLowerCase(),
       token: otp,
-      type: "sms",
+      type: "email",
     });
 
     if (verifyError) {
@@ -84,31 +82,24 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg">
-        {step === "phone" ? (
+        {step === "email" ? (
           <form onSubmit={handleSendOTP} className="space-y-4">
             <div className="text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-navy-100">
-                <Phone className="h-6 w-6 text-navy-600" />
+                <Mail className="h-6 w-6 text-navy-600" />
               </div>
-              <h2 className="text-lg font-bold text-navy-900">Login with Phone</h2>
+              <h2 className="text-lg font-bold text-navy-900">Login with Email</h2>
               <p className="text-sm text-navy-500">We&apos;ll send you a verification code</p>
             </div>
             <div className="space-y-2">
-              <Label>Phone Number</Label>
-              <div className="flex gap-2">
-                <div className="flex h-10 items-center rounded-md border border-navy-200 bg-navy-50 px-3 text-sm text-navy-600">
-                  +91
-                </div>
-                <Input
-                  type="tel"
-                  placeholder="98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  inputMode="numeric"
-                  autoFocus
-                  className="flex-1"
-                />
-              </div>
+              <Label>Email Address</Label>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoFocus
+              />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
@@ -124,7 +115,7 @@ export default function LoginPage() {
               </div>
               <h2 className="text-lg font-bold text-navy-900">Enter OTP</h2>
               <p className="text-sm text-navy-500">
-                Sent to {fullPhone}
+                Sent to {email.trim().toLowerCase()}
               </p>
             </div>
             <div className="space-y-2">
@@ -147,10 +138,10 @@ export default function LoginPage() {
             </Button>
             <button
               type="button"
-              onClick={() => { setStep("phone"); setOtp(""); setError(""); }}
+              onClick={() => { setStep("email"); setOtp(""); setError(""); }}
               className="w-full text-center text-sm text-navy-500 hover:text-navy-700"
             >
-              Change phone number
+              Change email
             </button>
           </form>
         )}
