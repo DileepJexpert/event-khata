@@ -34,11 +34,14 @@ export async function updateSession(request: NextRequest) {
   const publicPaths = ["/login", "/onboard", "/client/"];
   const isPublic = publicPaths.some((p) => pathname.startsWith(p));
 
-  // Root redirect
+  // Landing page: logged-in users go to dashboard, others see the landing page
   if (pathname === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = user ? "/events" : "/login";
-    return NextResponse.redirect(url);
+    if (user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/events";
+      return NextResponse.redirect(url);
+    }
+    return supabaseResponse; // Show landing page for non-logged-in users
   }
 
   // If not authenticated and trying to access protected route
