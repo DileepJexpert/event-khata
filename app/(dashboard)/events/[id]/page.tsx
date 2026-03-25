@@ -12,7 +12,7 @@ import { VendorPaymentCard } from "@/components/vendor-payment-card";
 import { BudgetDonut } from "@/components/budget-donut";
 import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
-  ListChecks, Users, Clock, CreditCard, PartyPopper, FileText,
+  ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import type { Event, Vendor, Contract, LedgerEntry, SubEvent } from "@/lib/types";
@@ -184,6 +184,10 @@ export default function EventDetailPage() {
         <Link href={`/events/${eventId}/documents`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
           <FileText className="h-5 w-5 text-navy-600" />
           <span className="text-[10px] font-medium text-navy-700">Documents</span>
+        </Link>
+        <Link href={`/events/${eventId}/communication`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+          <MessageCircle className="h-5 w-5 text-teal-600" />
+          <span className="text-[10px] font-medium text-navy-700">Comms</span>
         </Link>
       </div>
 

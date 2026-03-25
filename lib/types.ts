@@ -239,6 +239,97 @@ export type ClientToken = {
   created_at: string;
 };
 
+// ============================================
+// NEW FEATURES
+// ============================================
+
+export type ProposalItem = {
+  description: string;
+  category: string;
+  amount: number;
+  notes?: string;
+};
+
+export type Proposal = {
+  id: string;
+  agency_id: string;
+  lead_id: string | null;
+  event_id: string | null;
+  proposal_number: string;
+  client_name: string;
+  client_phone: string | null;
+  client_email: string | null;
+  event_type: EventType;
+  event_date: string | null;
+  venue: string | null;
+  items: ProposalItem[];
+  subtotal: number;
+  discount_percent: number;
+  discount_amount: number;
+  tax_percent: number;
+  tax_amount: number;
+  total: number;
+  terms_and_conditions: string | null;
+  valid_until: string | null;
+  status: "draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TeamMember = {
+  id: string;
+  agency_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  role: "owner" | "planner" | "coordinator" | "assistant" | "viewer";
+  is_active: boolean;
+  created_at: string;
+};
+
+export type CommunicationEntry = {
+  id: string;
+  agency_id: string;
+  event_id: string | null;
+  vendor_id: string | null;
+  contact_name: string;
+  contact_phone: string | null;
+  type: "call" | "whatsapp" | "email" | "meeting" | "note";
+  direction: "incoming" | "outgoing";
+  subject: string | null;
+  summary: string | null;
+  follow_up_date: string | null;
+  logged_by: string | null;
+  created_at: string;
+};
+
+export type EventTemplate = {
+  id: string;
+  agency_id: string | null;
+  name: string;
+  event_type: EventType;
+  is_system: boolean;
+  sub_events: { name: string; type: SubEventType }[];
+  tasks: { title: string; priority: "low" | "medium" | "high"; days_before: number }[];
+  vendor_categories: string[];
+  budget_split: Record<string, number>;
+  created_at: string;
+};
+
+export type Reminder = {
+  id: string;
+  agency_id: string;
+  event_id: string | null;
+  vendor_id: string | null;
+  title: string;
+  description: string | null;
+  remind_at: string;
+  type: "payment" | "follow_up" | "task" | "event" | "general";
+  is_done: boolean;
+  created_at: string;
+};
+
 // Joined types for UI
 export type ContractWithVendor = Contract & {
   vendor: Vendor;

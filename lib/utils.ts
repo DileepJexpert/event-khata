@@ -171,3 +171,36 @@ export const RSVP_STATUSES = [
   { value: "declined", label: "Declined", color: "bg-red-100 text-red-700" },
   { value: "maybe", label: "Maybe", color: "bg-amber-100 text-amber-700" },
 ] as const;
+
+export const PROPOSAL_STATUSES = [
+  { value: "draft", label: "Draft", color: "bg-gray-100 text-gray-600" },
+  { value: "sent", label: "Sent", color: "bg-blue-100 text-blue-700" },
+  { value: "viewed", label: "Viewed", color: "bg-purple-100 text-purple-700" },
+  { value: "accepted", label: "Accepted", color: "bg-emerald-100 text-emerald-700" },
+  { value: "rejected", label: "Rejected", color: "bg-red-100 text-red-700" },
+  { value: "expired", label: "Expired", color: "bg-amber-100 text-amber-700" },
+] as const;
+
+export const TEAM_ROLES = [
+  { value: "owner", label: "Owner", color: "bg-purple-100 text-purple-700" },
+  { value: "planner", label: "Planner", color: "bg-blue-100 text-blue-700" },
+  { value: "coordinator", label: "Coordinator", color: "bg-emerald-100 text-emerald-700" },
+  { value: "assistant", label: "Assistant", color: "bg-amber-100 text-amber-700" },
+  { value: "viewer", label: "Viewer", color: "bg-gray-100 text-gray-600" },
+] as const;
+
+export const COMM_TYPES = [
+  { value: "call", label: "Phone Call", icon: "Phone" },
+  { value: "whatsapp", label: "WhatsApp", icon: "MessageCircle" },
+  { value: "email", label: "Email", icon: "Mail" },
+  { value: "meeting", label: "Meeting", icon: "Users" },
+  { value: "note", label: "Note", icon: "FileText" },
+] as const;
+
+export const REMINDER_TYPES = [
+  { value: "payment", label: "Payment Due", color: "bg-emerald-100 text-emerald-700" },
+  { value: "follow_up", label: "Follow Up", color: "bg-blue-100 text-blue-700" },
+  { value: "task", label: "Task", color: "bg-amber-100 text-amber-700" },
+  { value: "event", label: "Event", color: "bg-purple-100 text-purple-700" },
+  { value: "general", label: "General", color: "bg-gray-100 text-gray-600" },
+] as const;
