@@ -78,10 +78,15 @@ export default function GuestsPage() {
     const rows = guests.map((g) =>
       `"${g.name}","${g.phone || ""}","${g.group_name || ""}","${g.side}","${g.rsvp_status}","${g.meal_preference}","${g.plus_count}"`
     ).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
+    const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "guest-list.csv"; a.click();
+    a.href = url;
+    a.download = "guest-list.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   const filtered = guests.filter((g) => {

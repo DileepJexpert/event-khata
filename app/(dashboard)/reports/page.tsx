@@ -124,10 +124,16 @@ export default function ReportsPage() {
         csv += `"${r.label}",${r.vendorCount},${r.totalAgreed},${r.totalPaid}\n`;
       });
     }
-    const blob = new Blob([csv], { type: "text/csv" });
+    if (!csv) return;
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `eventkhata-${activeTab}-report.csv`; a.click();
+    a.href = url;
+    a.download = `eventkhata-${activeTab}-report.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   return (
