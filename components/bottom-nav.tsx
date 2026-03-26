@@ -23,9 +23,12 @@ const navItems = [
 
 const moreItems = [
   { href: "/leads", label: "Leads", icon: UserPlus },
+  { href: "/proposals", label: "Proposals", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
+  { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/team", label: "Team", icon: Users },
   { href: "/notifications", label: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
