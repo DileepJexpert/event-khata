@@ -54,17 +54,17 @@ export default function SettingsPage() {
     }
 
     // Check admin separately (table may not exist)
-    try {
-      const { data: adminData } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .single();
-      if (adminData) setIsAdmin(true);
-    } catch {
-      // admin_users table may not exist yet
+    const { data: adminData, error: adminError } = await supabase
+      .from("admin_users")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (adminError) {
+      console.error("[Settings] Admin check failed:", adminError.message);
     }
+    if (adminData) setIsAdmin(true);
 
     setLoading(false);
   }
