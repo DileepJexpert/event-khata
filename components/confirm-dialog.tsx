@@ -38,10 +38,10 @@ export function ConfirmDialog({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
           <div
-            className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-900 dark:border dark:border-navy-700"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-2 text-lg font-bold text-navy-900">{title}</h3>
+            <h3 className="mb-2 text-lg font-bold text-navy-900 dark:text-navy-100">{title}</h3>
             <p className="mb-6 text-sm text-navy-600">{message}</p>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setOpen(false)} disabled={loading}>

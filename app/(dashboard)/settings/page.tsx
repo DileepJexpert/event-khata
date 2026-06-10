@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTheme } from "@/components/theme-provider";
 
 export default function SettingsPage() {
   const supabase = createClient();
   const { addToast } = useToast();
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -140,7 +142,7 @@ export default function SettingsPage() {
 
   return (
     <div className="px-4 pb-24 pt-4">
-      <h1 className="mb-6 text-2xl font-bold text-navy-900">Settings</h1>
+      <h1 className="mb-6 text-2xl font-bold text-navy-900 dark:text-navy-100">Settings</h1>
 
       {/* Admin Access */}
       {isAdmin && (
@@ -154,26 +156,57 @@ export default function SettingsPage() {
         </Link>
       )}
 
+      {/* Appearance */}
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900 dark:bg-navy-900">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 dark:bg-navy-800">
+            <Sun className="h-5 w-5 text-navy-600 dark:hidden" />
+            <Moon className="hidden h-5 w-5 text-navy-400 dark:block" />
+          </div>
+          <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100 dark:text-navy-100">Appearance</h2>
+        </div>
+        <div className="flex gap-2">
+          {([
+            { value: "light" as const, label: "Light", Icon: Sun },
+            { value: "dark" as const, label: "Dark", Icon: Moon },
+            { value: "system" as const, label: "Auto", Icon: Monitor },
+          ]).map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              onClick={() => setTheme(value)}
+              className={`flex flex-1 flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-colors ${
+                theme === value
+                  ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
+                  : "border-navy-200 text-navy-600 hover:border-navy-300 dark:border-navy-700 dark:text-navy-400 dark:hover:border-navy-600"
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Account Info */}
-      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900 dark:bg-navy-900">
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100">
-            <Mail className="h-5 w-5 text-navy-600" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 dark:bg-navy-800">
+            <Mail className="h-5 w-5 text-navy-600 dark:text-navy-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-navy-900">Account</h2>
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Account</h2>
             <p className="text-sm text-navy-500">{userEmail}</p>
           </div>
         </div>
       </div>
 
       {/* Agency Profile */}
-      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100">
-            <Building2 className="h-5 w-5 text-navy-600" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 dark:bg-navy-800">
+            <Building2 className="h-5 w-5 text-navy-600 dark:text-navy-400" />
           </div>
-          <h2 className="text-lg font-bold text-navy-900">Agency Profile</h2>
+          <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Agency Profile</h2>
         </div>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -206,13 +239,13 @@ export default function SettingsPage() {
       </div>
 
       {/* Subscription */}
-      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
             <Crown className="h-5 w-5 text-amber-600" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-navy-900">Subscription</h2>
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Subscription</h2>
             <p className="text-sm capitalize text-navy-500">{subscription} Plan</p>
           </div>
         </div>
@@ -243,12 +276,12 @@ export default function SettingsPage() {
       </div>
 
       {/* Data */}
-      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
             <Database className="h-5 w-5 text-blue-600" />
           </div>
-          <h2 className="text-lg font-bold text-navy-900">Data & Privacy</h2>
+          <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Data & Privacy</h2>
         </div>
         <div className="space-y-3">
           <Button variant="outline" size="sm" className="w-full" onClick={handleExportAll} disabled={exporting}>
@@ -260,19 +293,19 @@ export default function SettingsPage() {
       </div>
 
       {/* Help & Support */}
-      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
             <HelpCircle className="h-5 w-5 text-purple-600" />
           </div>
-          <h2 className="text-lg font-bold text-navy-900">Help & Support</h2>
+          <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Help & Support</h2>
         </div>
         <div className="space-y-2">
           <a
             href="https://wa.me/919999999999?text=Hi%2C%20I%20need%20help%20with%20EventKhata"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50"
+            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50 dark:border-navy-700 dark:text-navy-300 dark:hover:bg-navy-800"
           >
             <MessageCircle className="h-4 w-4 text-emerald-600" />
             <span className="flex-1">Chat with Support</span>
@@ -280,7 +313,7 @@ export default function SettingsPage() {
           </a>
           <a
             href="mailto:support@eventkhata.com?subject=EventKhata%20Support"
-            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50"
+            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50 dark:border-navy-700 dark:text-navy-300 dark:hover:bg-navy-800"
           >
             <Mail className="h-4 w-4 text-blue-600" />
             <span className="flex-1">Email Support</span>
@@ -290,7 +323,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Logout */}
-      <Button variant="outline" onClick={handleLogout} className="w-full text-red-600 hover:bg-red-50 hover:text-red-700">
+      <Button variant="outline" onClick={handleLogout} className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20">
         <LogOut className="mr-2 h-4 w-4" /> Logout
       </Button>
 

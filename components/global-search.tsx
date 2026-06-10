@@ -123,11 +123,11 @@ export function GlobalSearch() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm text-navy-400 shadow-sm transition-shadow hover:shadow-md w-full"
+        className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm text-navy-400 shadow-sm transition-shadow hover:shadow-md w-full dark:bg-navy-900 dark:text-navy-500"
       >
         <Search className="h-4 w-4" />
         <span className="flex-1 text-left">Search events, vendors, leads...</span>
-        <kbd className="hidden rounded bg-navy-100 px-1.5 py-0.5 text-[10px] font-semibold text-navy-500 sm:inline">
+        <kbd className="hidden rounded bg-navy-100 px-1.5 py-0.5 text-[10px] font-semibold text-navy-500 sm:inline dark:bg-navy-800">
           Ctrl+K
         </kbd>
       </button>
@@ -138,17 +138,17 @@ export function GlobalSearch() {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]" onClick={() => setOpen(false)}>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+        className="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl dark:bg-navy-900 dark:border dark:border-navy-700"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-navy-100 px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-navy-100 px-4 py-3 dark:border-navy-700">
           <Search className="h-5 w-5 text-navy-400" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search events, vendors, leads, invoices..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-navy-400"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-navy-400 dark:text-navy-100"
           />
           <button onClick={() => setOpen(false)} className="rounded-lg p-1 hover:bg-navy-100">
             <X className="h-4 w-4 text-navy-400" />
@@ -183,13 +183,13 @@ export function GlobalSearch() {
                   <button
                     key={`${result.type}-${result.id}`}
                     onClick={() => handleSelect(result)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-navy-50"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-navy-50 dark:hover:bg-navy-800"
                   >
                     <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${colorClass}`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm font-medium text-navy-900">{result.title}</p>
+                      <p className="truncate text-sm font-medium text-navy-900 dark:text-navy-100">{result.title}</p>
                       <p className="truncate text-xs text-navy-500">{result.subtitle}</p>
                     </div>
                     <span className="rounded-full bg-navy-100 px-2 py-0.5 text-[10px] font-medium capitalize text-navy-500">

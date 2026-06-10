@@ -16,6 +16,7 @@ import {
   ListChecks,
   FileText,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
 import type { Event, LedgerEntry, PaymentSchedule, Lead } from "@/lib/types";
@@ -141,8 +142,21 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-navy-200 border-t-navy-900" />
+      <div className="px-4 pb-24 pt-4">
+        <div className="mb-4">
+          <Skeleton className="mb-2 h-8 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <Skeleton className="mb-6 h-11 w-full rounded-lg" />
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="mb-3 h-5 w-40" />
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="mb-2 h-16 rounded-xl" />
+        ))}
       </div>
     );
   }
@@ -151,7 +165,7 @@ export default function DashboardPage() {
     <div className="px-4 pb-24 pt-4">
       {/* Header */}
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-navy-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-navy-900 dark:text-navy-100">Dashboard</h1>
         <p className="text-sm text-navy-500">Your event business at a glance</p>
       </div>
 
@@ -162,23 +176,23 @@ export default function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3">
-        <Link href="/events" className="rounded-xl bg-white p-4 shadow-sm">
+        <Link href="/events" className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
             <CalendarDays className="h-5 w-5 text-blue-600" />
           </div>
-          <p className="text-2xl font-bold text-navy-900">{data.activeEvents}</p>
+          <p className="text-2xl font-bold text-navy-900 dark:text-navy-100">{data.activeEvents}</p>
           <p className="text-xs text-navy-500">Active Events</p>
         </Link>
 
-        <Link href="/vendors" className="rounded-xl bg-white p-4 shadow-sm">
+        <Link href="/vendors" className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
             <Users className="h-5 w-5 text-purple-600" />
           </div>
-          <p className="text-2xl font-bold text-navy-900">{data.totalVendors}</p>
+          <p className="text-2xl font-bold text-navy-900 dark:text-navy-100">{data.totalVendors}</p>
           <p className="text-xs text-navy-500">Total Vendors</p>
         </Link>
 
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
@@ -186,7 +200,7 @@ export default function DashboardPage() {
           <p className="text-xs text-navy-500">Paid This Month</p>
         </div>
 
-        <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
             <IndianRupee className="h-5 w-5 text-amber-600" />
           </div>
@@ -231,7 +245,7 @@ export default function DashboardPage() {
       {data.upcomingEvents.length > 0 && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-navy-900">Upcoming Events</h2>
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Upcoming Events</h2>
             <Link href="/events" className="text-sm font-medium text-navy-600">View All</Link>
           </div>
           <div className="space-y-2">
@@ -239,9 +253,9 @@ export default function DashboardPage() {
               <Link
                 key={event.id}
                 href={`/events/${event.id}`}
-                className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm"
+                className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900"
               >
-                <div className="flex h-12 w-12 flex-col items-center justify-center rounded-lg bg-navy-100">
+                <div className="flex h-12 w-12 flex-col items-center justify-center rounded-lg bg-navy-100 dark:bg-navy-800">
                   <span className="text-xs font-bold text-navy-600">
                     {event.event_date ? new Date(event.event_date).toLocaleDateString("en-IN", { day: "2-digit" }) : "--"}
                   </span>
@@ -250,7 +264,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-navy-900">{event.client_name}</p>
+                  <p className="font-semibold text-navy-900 dark:text-navy-100">{event.client_name}</p>
                   <p className="text-xs text-navy-500">{event.venue || event.event_type}</p>
                 </div>
                 <div className="text-right">
@@ -267,21 +281,21 @@ export default function DashboardPage() {
       {/* Upcoming Payments */}
       {data.upcomingPayments.length > 0 && (
         <div className="mb-6">
-          <h2 className="mb-3 text-lg font-bold text-navy-900">Upcoming Payments</h2>
+          <h2 className="mb-3 text-lg font-bold text-navy-900 dark:text-navy-100">Upcoming Payments</h2>
           <div className="space-y-2">
             {data.upcomingPayments.map((payment: any) => (
-              <div key={payment.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+              <div key={payment.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
                   payment.status === "overdue" ? "bg-red-50" : "bg-amber-50"
                 }`}>
                   <Clock className={`h-5 w-5 ${payment.status === "overdue" ? "text-red-600" : "text-amber-600"}`} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-navy-900">{payment.vendor_name}</p>
+                  <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{payment.vendor_name}</p>
                   <p className="text-xs text-navy-500">{payment.event_name} &middot; {payment.label}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-navy-900">{formatCurrency(payment.amount)}</p>
+                  <p className="text-sm font-bold text-navy-900 dark:text-navy-100">{formatCurrency(payment.amount)}</p>
                   <p className={`text-xs ${payment.status === "overdue" ? "font-medium text-red-600" : "text-navy-500"}`}>
                     {formatDate(payment.due_date)}
                   </p>
@@ -296,17 +310,17 @@ export default function DashboardPage() {
       {data.recentPayments.length > 0 && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-navy-900">Recent Payments</h2>
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Recent Payments</h2>
             <Link href="/reports" className="text-sm font-medium text-navy-600">Reports</Link>
           </div>
           <div className="space-y-2">
             {data.recentPayments.map((payment: any) => (
-              <div key={payment.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+              <div key={payment.id} className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-navy-900">{payment.vendor_name}</p>
+                  <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{payment.vendor_name}</p>
                   <p className="text-xs text-navy-500">{payment.event_name}</p>
                 </div>
                 <div className="text-right">
@@ -321,7 +335,7 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="mb-6">
-        <h2 className="mb-3 text-lg font-bold text-navy-900">Quick Actions</h2>
+        <h2 className="mb-3 text-lg font-bold text-navy-900 dark:text-navy-100">Quick Actions</h2>
         <div className="grid grid-cols-3 gap-3">
           <Link href="/events/new" className="flex flex-col items-center gap-2 rounded-xl bg-navy-900 p-4 text-white">
             <CalendarDays className="h-5 w-5" />

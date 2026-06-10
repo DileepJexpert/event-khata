@@ -75,7 +75,7 @@ export default function NewVendorPage() {
   return (
     <div className="px-4 pt-4">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/vendors" className="rounded-full p-2 hover:bg-navy-100">
+        <Link href="/vendors" className="rounded-full p-2 hover:bg-navy-100 dark:hover:bg-navy-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-xl font-bold">New Vendor</h1>
@@ -106,8 +106,8 @@ export default function NewVendorPage() {
                 onClick={() => setForm({ ...form, category: cat.value })}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                   form.category === cat.value
-                    ? "bg-navy-900 text-white"
-                    : "bg-white text-navy-600 border border-navy-200"
+                    ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900"
+                    : "bg-white text-navy-600 border border-navy-200 dark:bg-navy-800 dark:text-navy-300 dark:border-navy-700"
                 }`}
               >
                 {cat.label}

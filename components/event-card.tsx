@@ -27,7 +27,7 @@ export function EventCard({ event, totalSpent = 0 }: EventCardProps) {
         <CardContent className="p-4">
           <div className="mb-2 flex items-start justify-between">
             <div>
-              <h3 className="font-semibold text-navy-900">{event.client_name}</h3>
+              <h3 className="font-semibold text-navy-900 dark:text-navy-100">{event.client_name}</h3>
               <p className="text-sm text-navy-500 capitalize">{event.event_type}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -65,7 +65,7 @@ export function EventCard({ event, totalSpent = 0 }: EventCardProps) {
                 </span>
                 <span className="font-medium">{formatCurrency(budget)}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-navy-100">
+              <div className="h-2 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
                 <div
                   className={`h-full rounded-full transition-all ${
                     percentage > 90 ? "bg-red-500" : percentage > 70 ? "bg-amber-500" : "bg-emerald-500"

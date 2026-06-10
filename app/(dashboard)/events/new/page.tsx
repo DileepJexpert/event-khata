@@ -10,13 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/currency-input";
 import { ArrowLeft, Loader2, Save, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
-import { EVENT_TYPES } from "@/lib/utils";
+import { EVENT_TYPES, isValidPhone } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { SYSTEM_TEMPLATES } from "@/lib/event-templates";
 
 export default function NewEventPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [showTemplates, setShowTemplates] = useState(true);
   const [form, setForm] = useState({
@@ -37,6 +40,17 @@ export default function NewEventPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!form.client_name.trim()) newErrors.client_name = "Client name is required";
+    if (form.client_phone && !isValidPhone(form.client_phone)) newErrors.client_phone = "Enter a valid 10-digit phone number";
+    if (form.total_budget && Number(form.total_budget) < 0) newErrors.total_budget = "Budget cannot be negative";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setLoading(true);
 
     const { requireUser } = await import("@/lib/auth");
@@ -58,7 +72,7 @@ export default function NewEventPage() {
       .single();
 
     if (error) {
-      console.error("[NewEvent] Failed to create event:", error.message, error);
+      addToast({ title: "Failed to create event", description: error.message, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -107,7 +121,7 @@ export default function NewEventPage() {
   return (
     <div className="px-4 pt-4">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/events" className="rounded-full p-2 hover:bg-navy-100">
+        <Link href="/events" className="rounded-full p-2 hover:bg-navy-100 dark:hover:bg-navy-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-xl font-bold">New Event</h1>
@@ -132,10 +146,10 @@ export default function NewEventPage() {
               <button key={i} type="button" onClick={() => selectTemplate(i)}
                 className={`rounded-lg border-2 p-3 text-left transition-all ${
                   selectedTemplate === i
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-navy-100 bg-white hover:border-navy-200"
+                    ? "border-purple-500 bg-purple-50 dark:bg-purple-950"
+                    : "border-navy-100 bg-white hover:border-navy-200 dark:border-navy-700 dark:bg-navy-800 dark:hover:border-navy-600"
                 }`}>
-                <p className="text-sm font-semibold text-navy-900">{template.name}</p>
+                <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{template.name}</p>
                 <div className="mt-1 flex flex-wrap gap-1">
                   <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">
                     {template.sub_events.length} functions
@@ -163,10 +177,12 @@ export default function NewEventPage() {
             id="client_name"
             placeholder="e.g., Sharma Family"
             value={form.client_name}
-            onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+            onChange={(e) => { setForm({ ...form, client_name: e.target.value }); setErrors({ ...errors, client_name: "" }); }}
             required
             autoFocus
+            className={errors.client_name ? "border-red-500" : ""}
           />
+          {errors.client_name && <p className="text-xs text-red-500">{errors.client_name}</p>}
         </div>
 
         <div className="space-y-2">
@@ -176,9 +192,11 @@ export default function NewEventPage() {
             type="tel"
             placeholder="98765 43210"
             value={form.client_phone}
-            onChange={(e) => setForm({ ...form, client_phone: e.target.value })}
+            onChange={(e) => { setForm({ ...form, client_phone: e.target.value }); setErrors({ ...errors, client_phone: "" }); }}
             inputMode="numeric"
+            className={errors.client_phone ? "border-red-500" : ""}
           />
+          {errors.client_phone && <p className="text-xs text-red-500">{errors.client_phone}</p>}
         </div>
 
         <div className="space-y-2">
@@ -191,8 +209,8 @@ export default function NewEventPage() {
                 onClick={() => setForm({ ...form, event_type: type.value })}
                 className={`rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
                   form.event_type === type.value
-                    ? "border-navy-900 bg-navy-900 text-white"
-                    : "border-navy-200 bg-white text-navy-600 hover:border-navy-300"
+                    ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
+                    : "border-navy-200 bg-white text-navy-600 hover:border-navy-300 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-300 dark:hover:border-navy-600"
                 }`}
               >
                 {type.label}

@@ -19,10 +19,10 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-navy-100">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-navy-100 dark:bg-navy-800">
         <Icon className="h-8 w-8 text-navy-400" />
       </div>
-      <h3 className="mb-2 text-lg font-semibold text-navy-900">{title}</h3>
+      <h3 className="mb-2 text-lg font-semibold text-navy-900 dark:text-navy-100">{title}</h3>
       <p className="mb-6 max-w-sm text-sm text-navy-500">{description}</p>
       {actionLabel && actionHref && (
         <Button asChild>

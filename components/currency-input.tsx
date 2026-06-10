@@ -33,7 +33,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
           type="text"
           inputMode="numeric"
           className={cn(
-            "flex h-14 w-full rounded-lg border border-navy-200 bg-white pl-10 pr-4 text-2xl font-semibold ring-offset-white placeholder:text-navy-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-14 w-full rounded-lg border border-navy-200 bg-white pl-10 pr-4 text-2xl font-semibold ring-offset-white placeholder:text-navy-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-100 dark:placeholder:text-navy-500 dark:ring-offset-navy-900",
             className
           )}
           value={formatDisplay(value)}
