@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Users, Phone, GitCompare } from "lucide-react";
+import { Plus, Search, Users, Phone, GitCompare, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatCurrency, VENDOR_CATEGORIES } from "@/lib/utils";
@@ -135,6 +135,11 @@ export default function VendorsPage() {
                         <Badge variant="secondary" className="text-xs capitalize">
                           {vendor.category.replace("_", " ")}
                         </Badge>
+                      )}
+                      {vendor.rating && vendor.rating > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-amber-500">
+                          <Star className="h-3 w-3 fill-amber-400" /> {vendor.rating}
+                        </span>
                       )}
                       {vendor.phone && (
                         <span className="flex items-center gap-1 text-xs text-navy-400">

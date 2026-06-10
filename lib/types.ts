@@ -330,6 +330,31 @@ export type Reminder = {
   created_at: string;
 };
 
+export type VendorReview = {
+  id: string;
+  agency_id: string;
+  vendor_id: string;
+  event_id: string | null;
+  rating: number;
+  review: string | null;
+  punctuality: number | null;
+  quality: number | null;
+  value_for_money: number | null;
+  communication: number | null;
+  created_at: string;
+};
+
+export type ActivityLog = {
+  id: string;
+  agency_id: string;
+  entity_type: "event" | "vendor" | "payment" | "invoice" | "proposal" | "lead" | "task" | "guest";
+  entity_id: string | null;
+  action: "created" | "updated" | "deleted" | "status_changed" | "payment_made" | "shared";
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 // Joined types for UI
 export type ContractWithVendor = Contract & {
   vendor: Vendor;

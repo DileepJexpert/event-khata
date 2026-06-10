@@ -13,9 +13,21 @@ import {
   CheckCircle2,
   ArrowRight,
   Plus,
+  ListChecks,
+  FileText,
 } from "lucide-react";
-import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils";
+import { GlobalSearch } from "@/components/global-search";
 import type { Event, LedgerEntry, PaymentSchedule, Lead } from "@/lib/types";
+
+type ActivityItem = {
+  id: string;
+  type: "payment" | "event" | "vendor" | "task" | "lead";
+  title: string;
+  subtitle: string;
+  time: string;
+  icon: "payment" | "event" | "vendor" | "task" | "lead";
+};
 
 type DashboardData = {
   activeEvents: number;
@@ -27,6 +39,8 @@ type DashboardData = {
   upcomingEvents: Event[];
   newLeads: number;
   overduePayments: number;
+  pendingTasks: number;
+  recentActivity: ActivityItem[];
 };
 
 export default function DashboardPage() {
@@ -42,6 +56,8 @@ export default function DashboardPage() {
     upcomingEvents: [],
     newLeads: 0,
     overduePayments: 0,
+    pendingTasks: 0,
+    recentActivity: [],
   });
 
   useEffect(() => {
@@ -59,6 +75,7 @@ export default function DashboardPage() {
       monthLedgerRes,
       schedulesRes,
       leadsRes,
+      tasksRes,
     ] = await Promise.all([
       supabase.from("events").select("*").eq("status", "active"),
       supabase.from("vendors").select("id", { count: "exact" }),
@@ -66,6 +83,7 @@ export default function DashboardPage() {
       supabase.from("ledger").select("amount, txn_type").gte("recorded_at", monthStart),
       supabase.from("payment_schedules").select("*, vendor:vendors(name), event:events(client_name)").in("status", ["upcoming", "due", "overdue"]).order("due_date", { ascending: true }).limit(5),
       supabase.from("leads").select("id", { count: "exact" }).eq("status", "new"),
+      supabase.from("tasks").select("id", { count: "exact" }).in("status", ["pending", "in_progress"]),
     ]);
 
     const activeEvents = eventsRes.data || [];
@@ -95,6 +113,16 @@ export default function DashboardPage() {
 
     const overdueCount = upcomingPayments.filter((p: any) => p.status === "overdue").length;
 
+    // Build activity feed from recent payments
+    const activity: ActivityItem[] = recentPayments.map((p: any) => ({
+      id: p.id,
+      type: "payment" as const,
+      title: `${p.txn_type === "REFUND" ? "Refund" : "Payment"} to ${p.vendor_name}`,
+      subtitle: `${formatCurrency(Number(p.amount))} - ${p.event_name}`,
+      time: p.recorded_at,
+      icon: "payment" as const,
+    }));
+
     setData({
       activeEvents: activeEvents.length,
       totalVendors: vendorsRes.count || 0,
@@ -105,6 +133,8 @@ export default function DashboardPage() {
       upcomingEvents: activeEvents.filter((e) => e.event_date && daysUntil(e.event_date) >= 0 && daysUntil(e.event_date) <= 30).slice(0, 3),
       newLeads: leadsRes.count || 0,
       overduePayments: overdueCount,
+      pendingTasks: tasksRes.count || 0,
+      recentActivity: activity,
     });
     setLoading(false);
   }
@@ -120,9 +150,14 @@ export default function DashboardPage() {
   return (
     <div className="px-4 pb-24 pt-4">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-navy-900">Dashboard</h1>
         <p className="text-sm text-navy-500">Your event business at a glance</p>
+      </div>
+
+      {/* Global Search */}
+      <div className="mb-6">
+        <GlobalSearch />
       </div>
 
       {/* Stat Cards */}
@@ -161,7 +196,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Alerts */}
-      {(data.overduePayments > 0 || data.newLeads > 0) && (
+      {(data.overduePayments > 0 || data.newLeads > 0 || data.pendingTasks > 0) && (
         <div className="mb-6 space-y-2">
           {data.overduePayments > 0 && (
             <div className="flex items-center gap-3 rounded-xl bg-red-50 p-3">
@@ -170,6 +205,15 @@ export default function DashboardPage() {
                 {data.overduePayments} overdue payment{data.overduePayments > 1 ? "s" : ""}
               </span>
             </div>
+          )}
+          {data.pendingTasks > 0 && (
+            <Link href="/tasks" className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
+              <ListChecks className="h-5 w-5 text-amber-600" />
+              <span className="text-sm font-medium text-amber-700">
+                {data.pendingTasks} pending task{data.pendingTasks > 1 ? "s" : ""}
+              </span>
+              <ArrowRight className="ml-auto h-4 w-4 text-amber-600" />
+            </Link>
           )}
           {data.newLeads > 0 && (
             <Link href="/leads" className="flex items-center gap-3 rounded-xl bg-blue-50 p-3">
@@ -278,22 +322,30 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="mb-6">
         <h2 className="mb-3 text-lg font-bold text-navy-900">Quick Actions</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <Link href="/events/new" className="flex items-center gap-2 rounded-xl bg-navy-900 p-4 text-white">
+        <div className="grid grid-cols-3 gap-3">
+          <Link href="/events/new" className="flex flex-col items-center gap-2 rounded-xl bg-navy-900 p-4 text-white">
             <CalendarDays className="h-5 w-5" />
-            <span className="text-sm font-semibold">New Event</span>
+            <span className="text-xs font-semibold">New Event</span>
           </Link>
-          <Link href="/pay" className="flex items-center gap-2 rounded-xl bg-emerald-600 p-4 text-white">
+          <Link href="/pay" className="flex flex-col items-center gap-2 rounded-xl bg-emerald-600 p-4 text-white">
             <IndianRupee className="h-5 w-5" />
-            <span className="text-sm font-semibold">Quick Pay</span>
+            <span className="text-xs font-semibold">Quick Pay</span>
           </Link>
-          <Link href="/vendors/new" className="flex items-center gap-2 rounded-xl bg-purple-600 p-4 text-white">
+          <Link href="/vendors/new" className="flex flex-col items-center gap-2 rounded-xl bg-purple-600 p-4 text-white">
             <Users className="h-5 w-5" />
-            <span className="text-sm font-semibold">Add Vendor</span>
+            <span className="text-xs font-semibold">Add Vendor</span>
           </Link>
-          <Link href="/leads/new" className="flex items-center gap-2 rounded-xl bg-blue-600 p-4 text-white">
+          <Link href="/leads/new" className="flex flex-col items-center gap-2 rounded-xl bg-blue-600 p-4 text-white">
             <Plus className="h-5 w-5" />
-            <span className="text-sm font-semibold">New Lead</span>
+            <span className="text-xs font-semibold">New Lead</span>
+          </Link>
+          <Link href="/proposals/new" className="flex flex-col items-center gap-2 rounded-xl bg-pink-600 p-4 text-white">
+            <FileText className="h-5 w-5" />
+            <span className="text-xs font-semibold">Proposal</span>
+          </Link>
+          <Link href="/invoices/new" className="flex flex-col items-center gap-2 rounded-xl bg-amber-600 p-4 text-white">
+            <FileText className="h-5 w-5" />
+            <span className="text-xs font-semibold">Invoice</span>
           </Link>
         </div>
       </div>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield, Mail } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -87,6 +87,48 @@ export default function SettingsPage() {
       addToast({ title: "Settings saved!", variant: "success" });
     }
     setSaving(false);
+  }
+
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportAll() {
+    setExporting(true);
+    const tables = ["events", "vendors", "contracts", "ledger", "sub_events", "tasks", "guests", "leads", "invoices", "proposals", "payment_schedules", "reminders", "communication_log", "team_members"];
+    const zip: Record<string, string> = {};
+
+    for (const table of tables) {
+      const { data } = await supabase.from(table).select("*");
+      if (data && data.length > 0) {
+        const headers = Object.keys(data[0]);
+        const csv = [
+          headers.join(","),
+          ...data.map((row: any) =>
+            headers.map((h) => {
+              const val = row[h];
+              if (val === null || val === undefined) return "";
+              const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+              return `"${str.replace(/"/g, '""')}"`;
+            }).join(",")
+          ),
+        ].join("\n");
+        zip[table] = csv;
+      }
+    }
+
+    for (const [table, csv] of Object.entries(zip)) {
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `eventkhata-${table}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    setExporting(false);
+    addToast({ title: `Exported ${Object.keys(zip).length} tables`, variant: "success" });
   }
 
   async function handleLogout() {
@@ -202,10 +244,18 @@ export default function SettingsPage() {
 
       {/* Data */}
       <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-navy-900">Data & Privacy</h2>
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+            <Database className="h-5 w-5 text-blue-600" />
+          </div>
+          <h2 className="text-lg font-bold text-navy-900">Data & Privacy</h2>
+        </div>
         <div className="space-y-3">
-          <Button variant="outline" size="sm" className="w-full">Export All Data (CSV)</Button>
-          <p className="text-xs text-navy-400 text-center">Your data is stored securely and never shared.</p>
+          <Button variant="outline" size="sm" className="w-full" onClick={handleExportAll} disabled={exporting}>
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            {exporting ? "Exporting..." : "Export All Data (CSV)"}
+          </Button>
+          <p className="text-xs text-navy-400 text-center">Downloads separate CSV files for each data table. Your data is stored securely and never shared.</p>
         </div>
       </div>
 

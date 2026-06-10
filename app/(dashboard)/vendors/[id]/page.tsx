@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Phone, CreditCard, Pencil, BookOpen } from "lucide-react";
+import { ArrowLeft, Phone, CreditCard, Pencil, BookOpen, Star, MessageSquare } from "lucide-react";
+import { StarRating } from "@/components/star-rating";
+import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { Vendor, LedgerEntry, Event } from "@/lib/types";
@@ -17,9 +19,11 @@ export default function VendorDetailPage() {
   const vendorId = params.id as string;
   const supabase = createClient();
 
+  const { addToast } = useToast();
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [payments, setPayments] = useState<(LedgerEntry & { event: Event })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vendorNotes, setVendorNotes] = useState("");
 
   useEffect(() => {
     loadData();
@@ -34,9 +38,18 @@ export default function VendorDetailPage() {
     if (vendorRes.error) console.error("[VendorDetail] Failed to load vendor:", vendorRes.error.message, vendorRes.error);
     if (paymentsRes.error) console.error("[VendorDetail] Failed to load payments:", paymentsRes.error.message, paymentsRes.error);
 
-    if (vendorRes.data) setVendor(vendorRes.data);
+    if (vendorRes.data) {
+      setVendor(vendorRes.data);
+      setVendorNotes(vendorRes.data.notes || "");
+    }
     if (paymentsRes.data) setPayments(paymentsRes.data as any);
     setLoading(false);
+  }
+
+  async function handleRate(rating: number) {
+    await supabase.from("vendors").update({ rating }).eq("id", vendorId);
+    addToast({ title: `Rated ${rating} stars`, variant: "success" });
+    setVendor((prev) => prev ? { ...prev, rating } : prev);
   }
 
   if (loading) {
@@ -78,7 +91,12 @@ export default function VendorDetailPage() {
       <div className="mb-4 flex gap-2">
         <Button asChild variant="outline" className="flex-1">
           <Link href={`/vendors/${vendorId}/ledger`}>
-            <BookOpen className="mr-2 h-4 w-4" /> View Ledger
+            <BookOpen className="mr-2 h-4 w-4" /> Ledger
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="flex-1">
+          <Link href={`/vendors/${vendorId}/review`}>
+            <Star className="mr-2 h-4 w-4" /> Review
           </Link>
         </Button>
       </div>
@@ -101,6 +119,19 @@ export default function VendorDetailPage() {
               {vendor.bank_name} {vendor.account_number && `• ${vendor.account_number}`} {vendor.ifsc_code && `• ${vendor.ifsc_code}`}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Rating */}
+      <Card className="mb-4">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-navy-900">Your Rating</p>
+              <p className="text-xs text-navy-500">Rate this vendor for future reference</p>
+            </div>
+            <StarRating rating={vendor.rating || 0} onRate={handleRate} size="md" />
+          </div>
         </CardContent>
       </Card>
 

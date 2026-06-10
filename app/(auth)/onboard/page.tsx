@@ -12,6 +12,8 @@ export default function OnboardPage() {
   const [agencyName, setAgencyName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -55,6 +57,8 @@ export default function OnboardPage() {
       owner_name: ownerName.trim() || null,
       owner_phone: ownerPhone.trim() || null,
       owner_email: userEmail || null,
+      city: city.trim() || null,
+      state: state.trim() || null,
     });
 
     if (insertError) {
@@ -111,6 +115,26 @@ export default function OnboardPage() {
                 value={ownerPhone}
                 onChange={(e) => setOwnerPhone(e.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="e.g., Mumbai"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  placeholder="e.g., Maharashtra"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                />
+              </div>
             </div>
             {userEmail && (
               <p className="text-xs text-navy-400">

@@ -13,9 +13,12 @@ import { BudgetDonut } from "@/components/budget-donut";
 import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
+  Send, Copy,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
-import type { Event, Vendor, Contract, LedgerEntry, SubEvent } from "@/lib/types";
+import { EventProgress } from "@/components/event-progress";
+import { useToast } from "@/components/ui/toast";
+import type { Event, Vendor, Contract, LedgerEntry, SubEvent, Task } from "@/lib/types";
 
 const TYPE_EMOJI: Record<string, string> = {
   mehendi: "🌿", sangeet: "🎶", haldi: "💛", wedding: "💍",
@@ -29,10 +32,13 @@ export default function EventDetailPage() {
   const eventId = params.id as string;
   const supabase = createClient();
 
+  const { addToast } = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [contracts, setContracts] = useState<(Contract & { vendor: Vendor })[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<(LedgerEntry & { vendor: Vendor })[]>([]);
   const [subEvents, setSubEvents] = useState<SubEvent[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [guestCount, setGuestCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,11 +46,13 @@ export default function EventDetailPage() {
   }, [eventId]);
 
   async function loadData() {
-    const [eventRes, contractsRes, ledgerRes, subEventsRes] = await Promise.all([
+    const [eventRes, contractsRes, ledgerRes, subEventsRes, tasksRes, guestsRes] = await Promise.all([
       supabase.from("events").select("*").eq("id", eventId).single(),
       supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
       supabase.from("ledger").select("*, vendor:vendors(*)").eq("event_id", eventId).order("recorded_at", { ascending: false }),
       supabase.from("sub_events").select("*").eq("event_id", eventId).order("date", { ascending: true, nullsFirst: false }).order("sort_order"),
+      supabase.from("tasks").select("*").eq("event_id", eventId),
+      supabase.from("guests").select("id", { count: "exact" }).eq("event_id", eventId),
     ]);
 
     if (eventRes.error) console.error("[EventDetail] Failed to load event:", eventRes.error.message, eventRes.error);
@@ -55,6 +63,8 @@ export default function EventDetailPage() {
     if (contractsRes.data) setContracts(contractsRes.data as any);
     if (ledgerRes.data) setLedgerEntries(ledgerRes.data as any);
     if (subEventsRes.data) setSubEvents(subEventsRes.data);
+    if (tasksRes.data) setTasks(tasksRes.data);
+    setGuestCount(guestsRes.count || 0);
     setLoading(false);
   }
 
@@ -83,6 +93,94 @@ export default function EventDetailPage() {
   const totalSpent = ledgerEntries.reduce((sum, e) => {
     return e.txn_type === "REFUND" ? sum - Number(e.amount) : sum + Number(e.amount);
   }, 0);
+
+  const totalAgreed = contracts.reduce((sum, c) => sum + Number(c.agreed_amount), 0);
+
+  async function duplicateEvent() {
+    if (!event) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: newEvent, error } = await supabase.from("events").insert({
+      agency_id: event.agency_id,
+      client_name: `${event.client_name} (Copy)`,
+      client_phone: event.client_phone,
+      client_email: event.client_email,
+      event_type: event.event_type,
+      total_budget: event.total_budget,
+      venue: event.venue,
+      notes: event.notes,
+      status: "active",
+    }).select().single();
+
+    if (error || !newEvent) {
+      addToast({ title: "Failed to duplicate", description: error?.message, variant: "destructive" });
+      return;
+    }
+
+    // Duplicate sub-events
+    if (subEvents.length > 0) {
+      await supabase.from("sub_events").insert(
+        subEvents.map((se) => ({
+          event_id: newEvent.id,
+          name: se.name,
+          type: se.type,
+          venue: se.venue,
+          budget: se.budget,
+          notes: se.notes,
+          sort_order: se.sort_order,
+        }))
+      );
+    }
+
+    // Duplicate tasks
+    if (tasks.length > 0) {
+      await supabase.from("tasks").insert(
+        tasks.map((t) => ({
+          event_id: newEvent.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority,
+          status: "pending",
+          sort_order: t.sort_order,
+        }))
+      );
+    }
+
+    addToast({ title: "Event duplicated!", variant: "success" });
+    router.push(`/events/${newEvent.id}`);
+  }
+
+  function shareEventSummary() {
+    if (!event) return;
+    const lines = [
+      `*${event.client_name} - Event Summary*`,
+      `Type: ${event.event_type}`,
+      event.event_date ? `Date: ${formatDate(event.event_date)}` : "",
+      event.venue ? `Venue: ${event.venue}` : "",
+      "",
+      `*Budget:* ${event.total_budget ? formatCurrency(Number(event.total_budget)) : "Not set"}`,
+      `*Total Agreed:* ${formatCurrency(totalAgreed)}`,
+      `*Total Paid:* ${formatCurrency(totalSpent)}`,
+      `*Outstanding:* ${formatCurrency(Math.max(0, totalAgreed - totalSpent))}`,
+      "",
+      `*Vendors (${contracts.length}):*`,
+      ...contracts.map((c) => {
+        const paid = vendorPayments.get(c.vendor_id) || 0;
+        return `• ${c.vendor.name} (${(c.vendor.category || "").replace("_", " ")}): ${formatCurrency(paid)} / ${formatCurrency(Number(c.agreed_amount))}`;
+      }),
+    ].filter(Boolean);
+
+    if (subEvents.length > 0) {
+      lines.push("", `*Functions (${subEvents.length}):*`);
+      subEvents.forEach((se) => {
+        lines.push(`• ${se.name}${se.date ? ` - ${formatDate(se.date)}` : ""}${se.venue ? ` @ ${se.venue}` : ""}`);
+      });
+    }
+
+    lines.push("", "_Generated by EventKhata_");
+    const url = `https://wa.me/${event.client_phone?.replace(/\D/g, "") || ""}?text=${encodeURIComponent(lines.join("\n"))}`;
+    window.open(url, "_blank");
+  }
 
   // Group payments by vendor
   const vendorPayments = new Map<string, number>();
@@ -147,6 +245,9 @@ export default function EventDetailPage() {
             <Plus className="mr-2 h-4 w-4" /> Add Vendor
           </Link>
         </Button>
+        <Button variant="outline" onClick={shareEventSummary} title="Share summary on WhatsApp">
+          <Send className="h-4 w-4" />
+        </Button>
         <Button asChild variant="outline">
           <Link href={`/events/${eventId}/edit`}>
             <Pencil className="h-4 w-4" />
@@ -158,6 +259,44 @@ export default function EventDetailPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Financial Summary */}
+      {totalAgreed > 0 && (
+        <div className="mb-4 grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[10px] text-navy-500">Agreed</p>
+            <p className="text-sm font-bold text-navy-900">{formatCurrency(totalAgreed)}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[10px] text-navy-500">Paid</p>
+            <p className="text-sm font-bold text-emerald-600">{formatCurrency(totalSpent)}</p>
+          </div>
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+            <p className="text-[10px] text-navy-500">Pending</p>
+            <p className="text-sm font-bold text-amber-600">{formatCurrency(Math.max(0, totalAgreed - totalSpent))}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Event Readiness */}
+      {event.status === "active" && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <EventProgress
+              items={[
+                { label: "Event date set", done: !!event.event_date },
+                { label: "Budget defined", done: !!event.total_budget && event.total_budget > 0 },
+                { label: "Venue confirmed", done: !!event.venue },
+                { label: "Vendors booked", done: contracts.length > 0 },
+                { label: "Sub-events planned", done: subEvents.length > 0 },
+                { label: "Guest list started", done: guestCount > 0 },
+                { label: "Tasks created", done: tasks.length > 0, warning: tasks.length > 0 && tasks.some((t) => t.status === "pending") },
+                { label: "All tasks completed", done: tasks.length > 0 && tasks.every((t) => t.status === "completed") },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Feature Grid */}
       <div className="mb-4 grid grid-cols-4 gap-2">
@@ -246,6 +385,17 @@ export default function EventDetailPage() {
           </div>
         </div>
       )}
+
+      {/* More Actions */}
+      <div className="mb-4">
+        <button
+          onClick={duplicateEvent}
+          className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50"
+        >
+          <Copy className="h-4 w-4" />
+          <span>Duplicate this event</span>
+        </button>
+      </div>
 
       {/* Payment History */}
       {ledgerEntries.length > 0 && (

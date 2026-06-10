@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Loader2, Send, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Download, Trash2, FileDown } from "lucide-react";
+import { generateInvoicePDF, downloadPDF } from "@/lib/pdf-generator";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { WhatsAppShare } from "@/components/whatsapp-share";
 import Link from "next/link";
@@ -45,6 +47,15 @@ export default function InvoiceDetailPage() {
     await supabase.from("invoices").delete().eq("id", invoiceId);
     addToast({ title: "Invoice deleted", variant: "success" });
     router.push("/invoices");
+  }
+
+  function handleDownloadPDF() {
+    if (!invoice) return;
+    const doc = generateInvoicePDF({
+      ...invoice,
+      items: invoice.items || [],
+    });
+    downloadPDF(doc, `${invoice.invoice_number}.pdf`);
   }
 
   function getInvoiceText() {
@@ -152,6 +163,9 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       <div className="space-y-3">
+        <Button onClick={handleDownloadPDF} variant="outline" size="lg" className="w-full">
+          <FileDown className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
         <WhatsAppShare phone={invoice.client_phone} message={getInvoiceText()} label="Share via WhatsApp" />
         {invoice.status === "draft" && (
           <Button onClick={markSent} size="lg" className="w-full">
@@ -163,9 +177,16 @@ export default function InvoiceDetailPage() {
             Mark as Paid
           </Button>
         )}
-        <Button onClick={handleDelete} variant="destructive" size="lg" className="w-full">
-          <Trash2 className="mr-2 h-4 w-4" /> Delete Invoice
-        </Button>
+        <ConfirmDialog
+          title="Delete Invoice"
+          message={`Are you sure you want to delete invoice ${invoice.invoice_number}? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+        >
+          <Button variant="destructive" size="lg" className="w-full">
+            <Trash2 className="mr-2 h-4 w-4" /> Delete Invoice
+          </Button>
+        </ConfirmDialog>
       </div>
     </div>
   );
