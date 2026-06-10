@@ -172,18 +172,18 @@ export default function ReportsPage() {
   return (
     <div className="px-4 pb-24 pt-4">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-navy-900">Reports</h1>
+        <h1 className="text-2xl font-bold text-navy-900 dark:text-navy-100">Reports</h1>
         <Button variant="outline" size="sm" onClick={exportCSV}>
           <Download className="mr-2 h-4 w-4" /> CSV
         </Button>
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex gap-1 rounded-lg bg-navy-100 p-1">
+      <div className="mb-4 flex gap-1 rounded-lg bg-navy-100 p-1 dark:bg-navy-800">
         {(["events", "vendors", "categories", "pnl"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`flex-1 rounded-md py-2 text-xs font-semibold transition-colors ${
-              activeTab === tab ? "bg-white text-navy-900 shadow-sm" : "text-navy-500"
+              activeTab === tab ? "bg-white text-navy-900 shadow-sm dark:bg-navy-700 dark:text-navy-100" : "text-navy-500"
             }`}>
             {tab === "pnl" ? "P&L" : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -196,15 +196,15 @@ export default function ReportsPage() {
         <div className="space-y-4">
           {/* P&L Summary */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
               <p className="text-xs text-navy-500">Total Budget (Revenue)</p>
-              <p className="text-xl font-bold text-navy-900">{formatCurrency(totalBudget)}</p>
+              <p className="text-xl font-bold text-navy-900 dark:text-navy-100">{formatCurrency(totalBudget)}</p>
             </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
               <p className="text-xs text-navy-500">Total Vendor Cost</p>
               <p className="text-xl font-bold text-red-600">{formatCurrency(totalAgreed)}</p>
             </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
               <p className="text-xs text-navy-500">Total Paid Out</p>
               <p className="text-xl font-bold text-amber-600">{formatCurrency(totalPaid)}</p>
             </div>
@@ -221,8 +221,8 @@ export default function ReportsPage() {
 
           {/* Monthly Trend Chart */}
           {monthlyData.some((d) => d.paid > 0) && (
-            <div className="rounded-xl bg-white p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-navy-900">Payment Trend (6 months)</h3>
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+              <h3 className="mb-3 text-sm font-semibold text-navy-900 dark:text-navy-100">Payment Trend (6 months)</h3>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -236,13 +236,13 @@ export default function ReportsPage() {
           )}
 
           {/* Per-event P&L */}
-          <h2 className="text-lg font-bold text-navy-900">Event-wise P&L</h2>
+          <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Event-wise P&L</h2>
           <div className="space-y-2">
             {eventReports.filter((r) => r.budget > 0).map((r) => (
-              <Link key={r.event.id} href={`/events/${r.event.id}`} className="block rounded-xl bg-white p-4 shadow-sm">
+              <Link key={r.event.id} href={`/events/${r.event.id}`} className="block rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-navy-900">{r.event.client_name}</p>
+                    <p className="font-semibold text-navy-900 dark:text-navy-100">{r.event.client_name}</p>
                     <p className="text-xs text-navy-500">Budget: {formatCurrency(r.budget)} &middot; Cost: {formatCurrency(r.totalAgreed)}</p>
                   </div>
                   <div className={`text-right ${r.profit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
@@ -262,18 +262,18 @@ export default function ReportsPage() {
             {categoryReports.map((r) => {
               const percent = totalPaid > 0 ? (r.totalPaid / totalPaid) * 100 : 0;
               return (
-                <div key={r.category} className="rounded-xl bg-white p-4 shadow-sm">
+                <div key={r.category} className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
                   <div className="mb-2 flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold capitalize text-navy-900">{r.label}</h3>
+                      <h3 className="font-semibold capitalize text-navy-900 dark:text-navy-100">{r.label}</h3>
                       <p className="text-xs text-navy-500">{r.vendorCount} vendor{r.vendorCount > 1 ? "s" : ""}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-navy-900">{formatCurrency(r.totalPaid)}</p>
+                      <p className="font-bold text-navy-900 dark:text-navy-100">{formatCurrency(r.totalPaid)}</p>
                       <p className="text-xs text-navy-500">{percent.toFixed(1)}% of total</p>
                     </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-navy-100">
+                  <div className="h-2 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
                     <div className="h-full rounded-full bg-navy-600" style={{ width: `${Math.min(percent, 100)}%` }} />
                   </div>
                   {r.totalAgreed > 0 && (
@@ -303,7 +303,7 @@ export default function ReportsPage() {
                           <span className="text-navy-500">Spent: {formatCurrency(report.totalSpent)}</span>
                           <span className="font-medium">Budget: {formatCurrency(report.budget)}</span>
                         </div>
-                        <div className="h-3 overflow-hidden rounded-full bg-navy-100">
+                        <div className="h-3 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
                           <div className={`h-full rounded-full ${
                             report.budget > 0 && report.totalSpent / report.budget > 0.9 ? "bg-red-500" :
                             report.totalSpent / report.budget > 0.7 ? "bg-amber-500" : "bg-emerald-500"
