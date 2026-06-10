@@ -204,3 +204,21 @@ export const REMINDER_TYPES = [
   { value: "event", label: "Event", color: "bg-purple-100 text-purple-700" },
   { value: "general", label: "General", color: "bg-gray-100 text-gray-600" },
 ] as const;
+
+// Validation helpers
+export function isValidPhone(phone: string): boolean {
+  const clean = phone.replace(/\D/g, "");
+  return clean.length === 10 || clean.length === 12;
+}
+
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function isValidIFSC(ifsc: string): boolean {
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase());
+}
+
+export function isValidUPI(upi: string): boolean {
+  return /^[\w.\-]+@[\w]+$/.test(upi);
+}

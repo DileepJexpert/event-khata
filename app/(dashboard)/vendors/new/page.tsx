@@ -9,12 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
-import { VENDOR_CATEGORIES } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
+import { VENDOR_CATEGORIES, isValidPhone, isValidIFSC } from "@/lib/utils";
 
 export default function NewVendorPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     name: "",
     category: "other",
@@ -28,6 +31,17 @@ export default function NewVendorPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!form.name.trim()) newErrors.name = "Vendor name is required";
+    if (form.phone && !isValidPhone(form.phone)) newErrors.phone = "Enter a valid 10-digit phone number";
+    if (form.ifsc_code && !isValidIFSC(form.ifsc_code)) newErrors.ifsc_code = "Enter a valid IFSC code (e.g., SBIN0001234)";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setLoading(true);
 
     const { requireUser } = await import("@/lib/auth");
@@ -50,8 +64,9 @@ export default function NewVendorPage() {
       .single();
 
     if (error) {
-      console.error("[NewVendor] Failed to create vendor:", error.message, error);
+      addToast({ title: "Failed to save vendor", description: error.message, variant: "destructive" });
     } else if (data) {
+      addToast({ title: "Vendor created!", variant: "success" });
       router.push(`/vendors/${data.id}`);
     }
     setLoading(false);
@@ -73,10 +88,12 @@ export default function NewVendorPage() {
             id="name"
             placeholder="e.g., Sharma Decorators"
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => { setForm({ ...form, name: e.target.value }); setErrors({ ...errors, name: "" }); }}
             required
             autoFocus
+            className={errors.name ? "border-red-500" : ""}
           />
+          {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
         </div>
 
         <div className="space-y-2">
@@ -106,9 +123,11 @@ export default function NewVendorPage() {
             type="tel"
             placeholder="98765 43210"
             value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            onChange={(e) => { setForm({ ...form, phone: e.target.value }); setErrors({ ...errors, phone: "" }); }}
             inputMode="numeric"
+            className={errors.phone ? "border-red-500" : ""}
           />
+          {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
         </div>
 
         <div className="space-y-2">

@@ -37,7 +37,26 @@ export default function PaymentSchedulePage() {
       supabase.from("payment_schedules").select("*, vendor:vendors(*)").eq("event_id", eventId).order("due_date"),
       supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
     ]);
-    if (schRes.data) setSchedules(schRes.data as any);
+    if (schRes.data) {
+      // Auto-update statuses based on current date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      for (const s of schRes.data as any[]) {
+        if (s.status === "paid") continue;
+        const due = new Date(s.due_date);
+        due.setHours(0, 0, 0, 0);
+        const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        let newStatus = s.status;
+        if (diff < 0) newStatus = "overdue";
+        else if (diff <= 3) newStatus = "due";
+        else newStatus = "upcoming";
+        if (newStatus !== s.status) {
+          await supabase.from("payment_schedules").update({ status: newStatus }).eq("id", s.id);
+          s.status = newStatus;
+        }
+      }
+      setSchedules(schRes.data as any);
+    }
     if (conRes.data) setContracts(conRes.data as any);
     setLoading(false);
   }
