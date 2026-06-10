@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -259,10 +259,46 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Help & Support */}
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
+            <HelpCircle className="h-5 w-5 text-purple-600" />
+          </div>
+          <h2 className="text-lg font-bold text-navy-900">Help & Support</h2>
+        </div>
+        <div className="space-y-2">
+          <a
+            href="https://wa.me/919999999999?text=Hi%2C%20I%20need%20help%20with%20EventKhata"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50"
+          >
+            <MessageCircle className="h-4 w-4 text-emerald-600" />
+            <span className="flex-1">Chat with Support</span>
+            <ExternalLink className="h-3.5 w-3.5 text-navy-400" />
+          </a>
+          <a
+            href="mailto:support@eventkhata.com?subject=EventKhata%20Support"
+            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50"
+          >
+            <Mail className="h-4 w-4 text-blue-600" />
+            <span className="flex-1">Email Support</span>
+            <ExternalLink className="h-3.5 w-3.5 text-navy-400" />
+          </a>
+        </div>
+      </div>
+
       {/* Logout */}
       <Button variant="outline" onClick={handleLogout} className="w-full text-red-600 hover:bg-red-50 hover:text-red-700">
         <LogOut className="mr-2 h-4 w-4" /> Logout
       </Button>
+
+      {/* App Info */}
+      <div className="mt-6 text-center">
+        <p className="text-xs text-navy-400">EventKhata v1.0.0</p>
+        <p className="text-[10px] text-navy-300">Digital Bahi Khata for Event Planners</p>
+      </div>
     </div>
   );
 }

@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { BarChart3, Download, TrendingUp, TrendingDown } from "lucide-react";
+import { BarChart3, Download, TrendingUp, TrendingDown, CalendarDays } from "lucide-react";
 import { formatCurrency, VENDOR_CATEGORIES } from "@/lib/utils";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import Link from "next/link";
 import type { Event, LedgerEntry, Contract } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export default function ReportsPage() {
   const [totalAgreed, setTotalAgreed] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
+  const [monthlyData, setMonthlyData] = useState<{ month: string; paid: number; events: number }[]>([]);
 
   useEffect(() => { loadReports(); }, []);
 
@@ -96,6 +98,36 @@ export default function ReportsPage() {
     const tAgreed = contracts.reduce((s, c) => s + Number(c.agreed_amount), 0);
     const tPaid = ledger.reduce((s, l) => s + (l.txn_type === "REFUND" ? -Number(l.amount) : Number(l.amount)), 0);
 
+    // Monthly trends (last 6 months)
+    const monthMap = new Map<string, { paid: number; events: number }>();
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      monthMap.set(key, { paid: 0, events: 0 });
+    }
+    ledger.forEach((l) => {
+      const d = new Date(l.recorded_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const existing = monthMap.get(key);
+      if (existing) {
+        existing.paid += l.txn_type === "REFUND" ? -Number(l.amount) : Number(l.amount);
+      }
+    });
+    events.forEach((e) => {
+      if (e.created_at) {
+        const d = new Date(e.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const existing = monthMap.get(key);
+        if (existing) existing.events += 1;
+      }
+    });
+    const monthlyChartData = Array.from(monthMap.entries()).map(([key, val]) => {
+      const [y, m] = key.split("-");
+      const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString("en-IN", { month: "short" });
+      return { month: label, paid: val.paid, events: val.events };
+    });
+
     setEventReports(eReports);
     setVendorReports(vReports);
     setCategoryReports(cReports);
@@ -103,6 +135,7 @@ export default function ReportsPage() {
     setTotalAgreed(tAgreed);
     setTotalPaid(tPaid);
     setTotalProfit(tBudget - tAgreed);
+    setMonthlyData(monthlyChartData);
     setLoading(false);
   }
 
@@ -185,6 +218,22 @@ export default function ReportsPage() {
               </div>
             </div>
           </div>
+
+          {/* Monthly Trend Chart */}
+          {monthlyData.some((d) => d.paid > 0) && (
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <h3 className="mb-3 text-sm font-semibold text-navy-900">Payment Trend (6 months)</h3>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Paid"]} />
+                  <Bar dataKey="paid" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           {/* Per-event P&L */}
           <h2 className="text-lg font-bold text-navy-900">Event-wise P&L</h2>
