@@ -263,15 +263,15 @@ export default function EventDetailPage() {
       {/* Financial Summary */}
       {totalAgreed > 0 && (
         <div className="mb-4 grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm dark:bg-navy-900">
             <p className="text-[10px] text-navy-500">Agreed</p>
-            <p className="text-sm font-bold text-navy-900">{formatCurrency(totalAgreed)}</p>
+            <p className="text-sm font-bold text-navy-900 dark:text-navy-100">{formatCurrency(totalAgreed)}</p>
           </div>
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm dark:bg-navy-900">
             <p className="text-[10px] text-navy-500">Paid</p>
             <p className="text-sm font-bold text-emerald-600">{formatCurrency(totalSpent)}</p>
           </div>
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm dark:bg-navy-900">
             <p className="text-[10px] text-navy-500">Pending</p>
             <p className="text-sm font-bold text-amber-600">{formatCurrency(Math.max(0, totalAgreed - totalSpent))}</p>
           </div>
@@ -300,33 +300,33 @@ export default function EventDetailPage() {
 
       {/* Feature Grid */}
       <div className="mb-4 grid grid-cols-4 gap-2">
-        <Link href={`/events/${eventId}/sub-events`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/sub-events`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <PartyPopper className="h-5 w-5 text-pink-600" />
-          <span className="text-[10px] font-medium text-navy-700">Functions</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Functions</span>
         </Link>
-        <Link href={`/events/${eventId}/tasks`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/tasks`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <ListChecks className="h-5 w-5 text-blue-600" />
-          <span className="text-[10px] font-medium text-navy-700">Checklist</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Checklist</span>
         </Link>
-        <Link href={`/events/${eventId}/guests`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/guests`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Users className="h-5 w-5 text-purple-600" />
-          <span className="text-[10px] font-medium text-navy-700">Guests</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Guests</span>
         </Link>
-        <Link href={`/events/${eventId}/timeline`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/timeline`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Clock className="h-5 w-5 text-amber-600" />
-          <span className="text-[10px] font-medium text-navy-700">Timeline</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Timeline</span>
         </Link>
-        <Link href={`/events/${eventId}/payment-schedule`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/payment-schedule`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <CreditCard className="h-5 w-5 text-emerald-600" />
-          <span className="text-[10px] font-medium text-navy-700">Payments</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Payments</span>
         </Link>
-        <Link href={`/events/${eventId}/documents`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/documents`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <FileText className="h-5 w-5 text-navy-600" />
-          <span className="text-[10px] font-medium text-navy-700">Documents</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Documents</span>
         </Link>
-        <Link href={`/events/${eventId}/communication`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm">
+        <Link href={`/events/${eventId}/communication`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <MessageCircle className="h-5 w-5 text-teal-600" />
-          <span className="text-[10px] font-medium text-navy-700">Comms</span>
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Comms</span>
         </Link>
       </div>
 
@@ -342,10 +342,10 @@ export default function EventDetailPage() {
               const dLeft = se.date ? daysUntil(se.date) : null;
               return (
                 <Link key={se.id} href={`/events/${eventId}/sub-events/${se.id}`}
-                  className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">
+                  className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
                   <span className="text-lg">{TYPE_EMOJI[se.type] || "✨"}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-navy-900">{se.name}</p>
+                    <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{se.name}</p>
                     <div className="flex gap-2 text-xs text-navy-500">
                       {se.date && <span>{formatDate(se.date)}</span>}
                       {se.start_time && <span>{formatTime(se.start_time)}</span>}
@@ -398,7 +398,7 @@ export default function EventDetailPage() {
       <div className="mb-4">
         <button
           onClick={duplicateEvent}
-          className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50"
+          className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50 dark:bg-navy-900 dark:text-navy-300 dark:hover:bg-navy-800"
         >
           <Copy className="h-4 w-4" />
           <span>Duplicate this event</span>

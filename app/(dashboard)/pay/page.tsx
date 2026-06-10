@@ -161,7 +161,7 @@ export default function QuickPayPage() {
         <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
           <Check className="h-10 w-10 text-emerald-600" />
         </div>
-        <h2 className="mb-2 text-2xl font-bold text-navy-900">Payment Saved!</h2>
+        <h2 className="mb-2 text-2xl font-bold text-navy-900 dark:text-navy-100">Payment Saved!</h2>
         <p className="mb-1 text-navy-600">{saved.vendorName}</p>
         <p className="mb-6 text-3xl font-bold text-emerald-600">
           {formatCurrency(saved.amount)}
@@ -198,7 +198,7 @@ export default function QuickPayPage() {
         {/* Select Event */}
         <div className="space-y-2">
           <Label>Select Event *</Label>
-          <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-1">
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-1 dark:border-navy-700">
             {loading ? (
               <p className="p-3 text-sm text-navy-400">Loading...</p>
             ) : events.length === 0 ? (
@@ -211,8 +211,8 @@ export default function QuickPayPage() {
                   onClick={() => setSelectedEvent(event.id)}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-left transition-colors ${
                     selectedEvent === event.id
-                      ? "bg-navy-900 text-white"
-                      : "hover:bg-navy-50"
+                      ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900"
+                      : "hover:bg-navy-50 dark:hover:bg-navy-800"
                   }`}
                 >
                   <span className="font-medium">{event.client_name}</span>
@@ -229,13 +229,13 @@ export default function QuickPayPage() {
         {selectedEvent && (
           <div className="space-y-2">
             <Label>Select Vendor *</Label>
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-1">
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-navy-200 p-1 dark:border-navy-700">
               {vendorsLoading ? (
                 <p className="p-3 text-sm text-navy-400">Loading vendors...</p>
               ) : vendors.length === 0 ? (
                 <div className="p-3 text-sm text-navy-400">
                   <p>No vendors assigned to this event.</p>
-                  <a href={`/events/${selectedEvent}/add-vendor`} className="mt-1 inline-block text-navy-900 underline font-medium">
+                  <a href={`/events/${selectedEvent}/add-vendor`} className="mt-1 inline-block text-navy-900 underline font-medium dark:text-navy-100">
                     + Add a vendor to this event first
                   </a>
                 </div>
@@ -247,8 +247,8 @@ export default function QuickPayPage() {
                     onClick={() => setSelectedVendor(contract.vendor_id)}
                     className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-left transition-colors ${
                       selectedVendor === contract.vendor_id
-                        ? "bg-navy-900 text-white"
-                        : "hover:bg-navy-50"
+                        ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900"
+                        : "hover:bg-navy-50 dark:hover:bg-navy-800"
                     }`}
                   >
                     <span className="font-medium">{contract.vendor?.name}</span>
@@ -286,8 +286,8 @@ export default function QuickPayPage() {
                     onClick={() => setPaymentMode(mode.value)}
                     className={`rounded-lg border-2 px-3 py-3 text-sm font-semibold transition-colors ${
                       paymentMode === mode.value
-                        ? "border-navy-900 bg-navy-900 text-white"
-                        : "border-navy-200 bg-white text-navy-600"
+                        ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
+                        : "border-navy-200 bg-white text-navy-600 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-300"
                     }`}
                   >
                     {mode.label}
@@ -307,8 +307,8 @@ export default function QuickPayPage() {
                     onClick={() => setTxnType(type.value)}
                     className={`rounded-lg border-2 px-2 py-2.5 text-xs font-semibold transition-colors ${
                       txnType === type.value
-                        ? "border-navy-900 bg-navy-900 text-white"
-                        : "border-navy-200 bg-white text-navy-600"
+                        ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
+                        : "border-navy-200 bg-white text-navy-600 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-300"
                     }`}
                   >
                     {type.label}
@@ -343,10 +343,10 @@ export default function QuickPayPage() {
             {/* Receipt Upload */}
             <div className="space-y-2">
               <Label>Receipt / Photo (optional)</Label>
-              <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-navy-200 p-4 transition-colors hover:border-navy-400">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-navy-200 p-4 transition-colors hover:border-navy-400 dark:border-navy-700 dark:hover:border-navy-500">
                 <Camera className="h-6 w-6 text-navy-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-navy-700">
+                  <p className="text-sm font-medium text-navy-700 dark:text-navy-300">
                     {receiptFile ? receiptFile.name : "Tap to attach receipt"}
                   </p>
                   <p className="text-xs text-navy-400">Photo, screenshot or PDF</p>

@@ -35,7 +35,7 @@ export function VendorPaymentCard({
           </div>
         </div>
 
-        <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-navy-100">
+        <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
           <div
             className="h-full rounded-full bg-emerald-500 transition-all"
             style={{ width: `${percentage}%` }}
