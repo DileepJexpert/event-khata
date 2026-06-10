@@ -386,6 +386,14 @@ export default function EventDetailPage() {
         </div>
       )}
 
+      {/* Notes */}
+      {event.notes && (
+        <div className="mb-4 rounded-xl bg-amber-50 p-4">
+          <p className="text-xs font-semibold text-amber-700">Notes</p>
+          <p className="mt-1 text-sm text-amber-900 whitespace-pre-wrap">{event.notes}</p>
+        </div>
+      )}
+
       {/* More Actions */}
       <div className="mb-4">
         <button

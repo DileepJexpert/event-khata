@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarDays, IndianRupee, Users, MoreHorizontal } from "lucide-react";
+import { Home, CalendarDays, IndianRupee, Users, MoreHorizontal, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -12,6 +12,7 @@ import {
   Settings,
   ClipboardList,
   Bell,
+  CalendarCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -28,6 +29,7 @@ const moreItems = [
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/events/calendar", label: "Calendar", icon: CalendarCheck },
   { href: "/team", label: "Team", icon: Users },
   { href: "/notifications", label: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
