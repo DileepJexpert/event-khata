@@ -13,7 +13,7 @@ import { BudgetDonut } from "@/components/budget-donut";
 import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
-  Send, Copy,
+  Send, Copy, Save,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
@@ -148,6 +148,36 @@ export default function EventDetailPage() {
 
     addToast({ title: "Event duplicated!", variant: "success" });
     router.push(`/events/${newEvent.id}`);
+  }
+
+  async function saveAsTemplate() {
+    if (!event) return;
+    const name = window.prompt("Template name:", `${event.event_type} template`);
+    if (!name) return;
+
+    const eventDate = event.event_date ? new Date(event.event_date) : null;
+    const templateTasks = tasks.map((t) => {
+      let daysBefore = 30;
+      if (eventDate && t.due_date) {
+        const diff = Math.round((eventDate.getTime() - new Date(t.due_date).getTime()) / (1000 * 60 * 60 * 24));
+        daysBefore = diff > 0 ? diff : 0;
+      }
+      return { title: t.title, priority: t.priority, days_before: daysBefore };
+    });
+
+    const { error } = await supabase.from("event_templates").insert({
+      agency_id: event.agency_id,
+      name,
+      event_type: event.event_type,
+      is_system: false,
+      sub_events: subEvents.map((se) => ({ name: se.name, type: se.type })),
+      tasks: templateTasks,
+      vendor_categories: Array.from(new Set(contracts.map((c) => c.vendor.category).filter(Boolean))),
+      budget_split: {},
+    });
+
+    if (error) addToast({ title: "Failed to save template", description: error.message, variant: "destructive" });
+    else addToast({ title: "Saved as template!", description: "Reuse it when creating new events.", variant: "success" });
   }
 
   function shareEventSummary() {
@@ -328,6 +358,10 @@ export default function EventDetailPage() {
           <MessageCircle className="h-5 w-5 text-teal-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Comms</span>
         </Link>
+        <Link href={`/events/${eventId}/invite`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+          <Send className="h-5 w-5 text-rose-600" />
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">E-Invite</span>
+        </Link>
       </div>
 
       {/* Multi-Day Functions */}
@@ -395,13 +429,20 @@ export default function EventDetailPage() {
       )}
 
       {/* More Actions */}
-      <div className="mb-4">
+      <div className="mb-4 space-y-2">
         <button
           onClick={duplicateEvent}
           className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50 dark:bg-navy-900 dark:text-navy-300 dark:hover:bg-navy-800"
         >
           <Copy className="h-4 w-4" />
           <span>Duplicate this event</span>
+        </button>
+        <button
+          onClick={saveAsTemplate}
+          className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50 dark:bg-navy-900 dark:text-navy-300 dark:hover:bg-navy-800"
+        >
+          <Save className="h-4 w-4" />
+          <span>Save as reusable template</span>
         </button>
       </div>
 

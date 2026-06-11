@@ -10,6 +10,7 @@ import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, He
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
+import { CURRENCIES, setActiveCurrency } from "@/lib/utils";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const [ownerPhone, setOwnerPhone] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [currency, setCurrency] = useState("INR");
   const [subscription, setSubscription] = useState("free");
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function SettingsPage() {
       setOwnerPhone(agencyData.owner_phone || "");
       setCity(agencyData.city || "");
       setState(agencyData.state || "");
+      setCurrency(agencyData.currency || "INR");
       setSubscription(agencyData.subscription_status || "free");
     }
 
@@ -81,11 +84,13 @@ export default function SettingsPage() {
       owner_email: userEmail || null,
       city: city || null,
       state: state || null,
+      currency,
     }).eq("id", userId);
 
     if (error) {
       addToast({ title: "Failed to save", description: error.message, variant: "destructive" });
     } else {
+      setActiveCurrency(currency);
       addToast({ title: "Settings saved!", variant: "success" });
     }
     setSaving(false);
@@ -230,6 +235,14 @@ export default function SettingsPage() {
               <Label>State</Label>
               <Input value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g., Maharashtra" />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Currency</Label>
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+              className="w-full rounded-lg border border-navy-200 p-3 text-sm dark:border-navy-700 dark:bg-navy-800 dark:text-navy-100">
+              {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </select>
+            <p className="text-xs text-navy-400">Used across the app for NRI &amp; destination weddings.</p>
           </div>
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { setActiveCurrency } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       if (!user) {
         router.replace("/login");
       } else {
+        // Load the agency's preferred currency once so formatCurrency uses it app-wide.
+        supabase
+          .from("agencies")
+          .select("currency")
+          .eq("id", user.id)
+          .maybeSingle()
+          .then(({ data }) => setActiveCurrency(data?.currency));
         setChecked(true);
       }
     }

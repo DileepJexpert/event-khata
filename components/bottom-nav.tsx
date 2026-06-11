@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Bell,
   CalendarCheck,
+  Receipt,
 } from "lucide-react";
 
 const navItems = [
@@ -27,6 +28,7 @@ const moreItems = [
   { href: "/proposals", label: "Proposals", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/reminders", label: "Reminders", icon: Bell },
   { href: "/events/calendar", label: "Calendar", icon: CalendarCheck },

@@ -5,6 +5,66 @@ export type Agency = {
   owner_phone: string | null;
   owner_email: string | null;
   subscription_status: "free" | "pro" | "enterprise";
+  currency: string;
+  created_at: string;
+};
+
+export type Expense = {
+  id: string;
+  agency_id: string;
+  event_id: string | null;
+  title: string;
+  category:
+    | "travel"
+    | "food"
+    | "accommodation"
+    | "tips"
+    | "supplies"
+    | "transport"
+    | "emergency"
+    | "staff"
+    | "misc"
+    | "other";
+  amount: number;
+  payment_mode: PaymentMode;
+  spent_on: string;
+  paid_by: string | null;
+  reimbursable: boolean;
+  reimbursed: boolean;
+  receipt_url: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type EventInvite = {
+  id: string;
+  agency_id: string;
+  event_id: string;
+  token: string;
+  title: string;
+  message: string | null;
+  host_names: string | null;
+  venue: string | null;
+  event_date: string | null;
+  event_time: string | null;
+  theme_color: string;
+  cover_image_url: string | null;
+  collect_meal_preference: boolean;
+  collect_plus_count: boolean;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type RsvpResponse = {
+  id: string;
+  invite_id: string;
+  event_id: string;
+  guest_name: string;
+  guest_phone: string | null;
+  attending: "confirmed" | "declined" | "maybe";
+  plus_count: number;
+  meal_preference: "veg" | "non_veg" | "jain" | "vegan" | "no_preference";
+  message: string | null;
   created_at: string;
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,15 @@ import { EVENT_TYPES, isValidPhone } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { SYSTEM_TEMPLATES } from "@/lib/event-templates";
 
+type TemplateShape = {
+  name: string;
+  event_type: string;
+  sub_events: { name: string; type: string }[];
+  tasks: { title: string; priority: string; days_before: number }[];
+  budget_split: Record<string, number>;
+  is_custom?: boolean;
+};
+
 export default function NewEventPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -22,6 +31,7 @@ export default function NewEventPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [showTemplates, setShowTemplates] = useState(true);
+  const [templates, setTemplates] = useState<TemplateShape[]>(SYSTEM_TEMPLATES as unknown as TemplateShape[]);
   const [form, setForm] = useState({
     client_name: "",
     client_phone: "",
@@ -32,8 +42,26 @@ export default function NewEventPage() {
     notes: "",
   });
 
+  useEffect(() => {
+    // Load the agency's saved custom templates and append them after system ones.
+    supabase.from("event_templates").select("*").eq("is_system", false).order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const custom: TemplateShape[] = data.map((t: any) => ({
+            name: t.name,
+            event_type: t.event_type,
+            sub_events: t.sub_events || [],
+            tasks: t.tasks || [],
+            budget_split: t.budget_split || {},
+            is_custom: true,
+          }));
+          setTemplates([...(SYSTEM_TEMPLATES as unknown as TemplateShape[]), ...custom]);
+        }
+      });
+  }, []);
+
   function selectTemplate(index: number) {
-    const template = SYSTEM_TEMPLATES[index];
+    const template = templates[index];
     setSelectedTemplate(index);
     setForm({ ...form, event_type: template.event_type });
   }
@@ -78,7 +106,7 @@ export default function NewEventPage() {
     }
 
     if (data && selectedTemplate !== null) {
-      const template = SYSTEM_TEMPLATES[selectedTemplate];
+      const template = templates[selectedTemplate];
       const eventDate = form.event_date ? new Date(form.event_date) : null;
       const budget = form.total_budget ? Number(form.total_budget) : null;
 
@@ -142,14 +170,19 @@ export default function NewEventPage() {
         </button>
         {showTemplates && (
           <div className="grid grid-cols-2 gap-2">
-            {SYSTEM_TEMPLATES.map((template, i) => (
+            {templates.map((template, i) => (
               <button key={i} type="button" onClick={() => selectTemplate(i)}
                 className={`rounded-lg border-2 p-3 text-left transition-all ${
                   selectedTemplate === i
                     ? "border-purple-500 bg-purple-50 dark:bg-purple-950"
                     : "border-navy-100 bg-white hover:border-navy-200 dark:border-navy-700 dark:bg-navy-800 dark:hover:border-navy-600"
                 }`}>
-                <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{template.name}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{template.name}</p>
+                  {template.is_custom && (
+                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Saved</span>
+                  )}
+                </div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">
                     {template.sub_events.length} functions
