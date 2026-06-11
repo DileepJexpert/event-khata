@@ -13,7 +13,7 @@ import { BudgetDonut } from "@/components/budget-donut";
 import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
-  Send, Copy, Save,
+  Send, Copy, Save, AlertTriangle,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
@@ -266,6 +266,21 @@ export default function EventDetailPage() {
             <BudgetDonut totalBudget={Number(event.total_budget)} totalSpent={totalSpent} />
           </CardContent>
         </Card>
+      )}
+
+      {/* Budget Alert */}
+      {event.total_budget && Number(event.total_budget) > 0 &&
+        (totalSpent / Number(event.total_budget)) * 100 >= (event.budget_alert_percent ?? 80) && (
+        <div className={`mb-4 flex items-center gap-3 rounded-xl p-3 ${
+          totalSpent > Number(event.total_budget) ? "bg-red-50 dark:bg-red-900/20" : "bg-amber-50 dark:bg-amber-900/20"
+        }`}>
+          <AlertTriangle className={`h-5 w-5 ${totalSpent > Number(event.total_budget) ? "text-red-600" : "text-amber-600"}`} />
+          <span className={`text-sm font-medium ${totalSpent > Number(event.total_budget) ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+            {totalSpent > Number(event.total_budget)
+              ? `Over budget by ${formatCurrency(totalSpent - Number(event.total_budget))}`
+              : `${Math.round((totalSpent / Number(event.total_budget)) * 100)}% of budget spent`}
+          </span>
+        </div>
       )}
 
       {/* Quick Actions */}

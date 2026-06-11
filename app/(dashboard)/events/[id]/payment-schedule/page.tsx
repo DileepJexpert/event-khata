@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/currency-input";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle, MessageCircle } from "lucide-react";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
+import { getWhatsAppShareURL, getPaymentReminderMessage } from "@/lib/whatsapp";
 import Link from "next/link";
 import type { PaymentSchedule, Contract, Vendor } from "@/lib/types";
 
@@ -89,6 +90,22 @@ export default function PaymentSchedulePage() {
   async function handleDelete(id: string) {
     await supabase.from("payment_schedules").delete().eq("id", id);
     load();
+  }
+
+  function remindVendor(sch: PaymentSchedule & { vendor?: Vendor }) {
+    if (!sch.vendor?.phone) {
+      addToast({ title: "No phone number", description: "Add a phone number for this vendor first.", variant: "destructive" });
+      return;
+    }
+    const isOverdue = sch.due_date && new Date(sch.due_date) < new Date();
+    const msg = getPaymentReminderMessage({
+      vendorName: sch.vendor.name,
+      amount: Number(sch.amount),
+      dueDate: formatDate(sch.due_date),
+      label: sch.label,
+      overdue: !!isOverdue,
+    });
+    window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
   }
 
   const totalDue = schedules.filter((s) => s.status !== "paid").reduce((sum, s) => sum + s.amount, 0);
@@ -186,6 +203,9 @@ export default function PaymentSchedulePage() {
                 <div className="mt-3 flex gap-2">
                   <Button size="sm" variant="success" onClick={() => markPaid(sch.id)} className="flex-1">
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Mark Paid
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => remindVendor(sch)} title="Send WhatsApp reminder">
+                    <MessageCircle className="h-3 w-3" />
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => handleDelete(sch.id)}>
                     <Trash2 className="h-3 w-3" />

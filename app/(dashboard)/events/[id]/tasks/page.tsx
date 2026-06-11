@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Plus, Loader2, Check, Circle, Clock, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Check, Circle, Clock, Trash2, List, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
 import { TASK_PRIORITIES, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import type { Task } from "@/lib/types";
@@ -17,6 +17,12 @@ const STATUS_ICONS = {
   in_progress: Clock,
   completed: Check,
 };
+
+const BOARD_COLUMNS: { status: "pending" | "in_progress" | "completed"; label: string; accent: string }[] = [
+  { status: "pending", label: "To Do", accent: "border-navy-300" },
+  { status: "in_progress", label: "In Progress", accent: "border-amber-400" },
+  { status: "completed", label: "Done", accent: "border-emerald-400" },
+];
 
 export default function EventTasksPage() {
   const supabase = createClient();
@@ -29,6 +35,7 @@ export default function EventTasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "in_progress" | "completed">("all");
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -72,6 +79,11 @@ export default function EventTasksPage() {
     load();
   }
 
+  async function setStatus(task: Task, status: "pending" | "in_progress" | "completed") {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status } : t)));
+    await supabase.from("tasks").update({ status, updated_at: new Date().toISOString() }).eq("id", task.id);
+  }
+
   async function handleDelete(id: string) {
     await supabase.from("tasks").delete().eq("id", id);
     load();
@@ -89,12 +101,22 @@ export default function EventTasksPage() {
   return (
     <div className="px-4 pb-24 pt-4">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/events/${eventId}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100">
+        <Link href={`/events/${eventId}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100 dark:bg-navy-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Checklist</h1>
+          <h1 className="text-xl font-bold text-navy-900 dark:text-navy-100">Checklist</h1>
           <p className="text-sm text-navy-500">{stats.completed}/{stats.total} completed</p>
+        </div>
+        <div className="flex items-center rounded-lg bg-navy-100 p-0.5 dark:bg-navy-800">
+          <button onClick={() => setViewMode("list")}
+            className={`flex h-8 w-8 items-center justify-center rounded-md ${viewMode === "list" ? "bg-white text-navy-900 shadow-sm dark:bg-navy-700 dark:text-navy-100" : "text-navy-400"}`}>
+            <List className="h-4 w-4" />
+          </button>
+          <button onClick={() => setViewMode("board")}
+            className={`flex h-8 w-8 items-center justify-center rounded-md ${viewMode === "board" ? "bg-white text-navy-900 shadow-sm dark:bg-navy-700 dark:text-navy-100" : "text-navy-400"}`}>
+            <LayoutGrid className="h-4 w-4" />
+          </button>
         </div>
         <Button size="sm" onClick={() => setShowForm(!showForm)}>
           <Plus className="mr-1 h-4 w-4" /> Add
@@ -103,25 +125,27 @@ export default function EventTasksPage() {
 
       {/* Progress bar */}
       {stats.total > 0 && (
-        <div className="mb-4 h-2 overflow-hidden rounded-full bg-navy-100">
+        <div className="mb-4 h-2 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
           <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${(stats.completed / stats.total) * 100}%` }} />
         </div>
       )}
 
-      {/* Filters */}
-      <div className="mb-4 flex gap-2">
-        {(["all", "pending", "in_progress", "completed"] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              filter === f ? "bg-navy-900 text-white" : "bg-navy-100 text-navy-600"
-            }`}>
-            {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
-      </div>
+      {/* Filters (list view only) */}
+      {viewMode === "list" && (
+        <div className="mb-4 flex gap-2">
+          {(["all", "pending", "in_progress", "completed"] as const).map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                filter === f ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900" : "bg-navy-100 text-navy-600 dark:bg-navy-800 dark:text-navy-300"
+              }`}>
+              {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {showForm && (
-        <div className="mb-4 space-y-3 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mb-4 space-y-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title *" />
           <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" />
           <div className="grid grid-cols-2 gap-3">
@@ -145,45 +169,91 @@ export default function EventTasksPage() {
         </div>
       )}
 
-      <div className="space-y-2">
-        {filtered.map((task) => {
-          const Icon = STATUS_ICONS[task.status];
-          const priorityStyle = TASK_PRIORITIES.find((p) => p.value === task.priority);
-          return (
-            <div key={task.id} className="flex items-start gap-3 rounded-xl bg-white p-4 shadow-sm">
-              <button onClick={() => toggleStatus(task)} className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                task.status === "completed" ? "border-emerald-500 bg-emerald-500 text-white" :
-                task.status === "in_progress" ? "border-amber-500 text-amber-500" : "border-navy-300 text-navy-300"
-              }`}>
-                <Icon className="h-3.5 w-3.5" />
-              </button>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${task.status === "completed" ? "text-navy-400 line-through" : "text-navy-900"}`}>
-                  {task.title}
-                </p>
-                {task.description && <p className="text-xs text-navy-400">{task.description}</p>}
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {task.due_date && (
-                    <span className="text-xs text-navy-500">{formatDate(task.due_date)}</span>
-                  )}
-                  {task.assigned_to && (
-                    <span className="rounded bg-navy-100 px-1.5 py-0.5 text-xs text-navy-600">{task.assigned_to}</span>
-                  )}
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityStyle?.color}`}>
-                    {task.priority}
-                  </span>
+      {viewMode === "list" ? (
+        <div className="space-y-2">
+          {filtered.map((task) => {
+            const Icon = STATUS_ICONS[task.status];
+            const priorityStyle = TASK_PRIORITIES.find((p) => p.value === task.priority);
+            return (
+              <div key={task.id} className="flex items-start gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+                <button onClick={() => toggleStatus(task)} className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                  task.status === "completed" ? "border-emerald-500 bg-emerald-500 text-white" :
+                  task.status === "in_progress" ? "border-amber-500 text-amber-500" : "border-navy-300 text-navy-300"
+                }`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${task.status === "completed" ? "text-navy-400 line-through" : "text-navy-900 dark:text-navy-100"}`}>
+                    {task.title}
+                  </p>
+                  {task.description && <p className="text-xs text-navy-400">{task.description}</p>}
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {task.due_date && (
+                      <span className="text-xs text-navy-500">{formatDate(task.due_date)}</span>
+                    )}
+                    {task.assigned_to && (
+                      <span className="rounded bg-navy-100 px-1.5 py-0.5 text-xs text-navy-600 dark:bg-navy-800 dark:text-navy-300">{task.assigned_to}</span>
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityStyle?.color}`}>
+                      {task.priority}
+                    </span>
+                  </div>
                 </div>
+                <button onClick={() => handleDelete(task.id)} className="text-navy-300 hover:text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-              <button onClick={() => handleDelete(task.id)} className="text-navy-300 hover:text-red-500">
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          );
-        })}
-        {filtered.length === 0 && (
-          <p className="py-12 text-center text-sm text-navy-400">No tasks yet. Add your first task!</p>
-        )}
-      </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <p className="py-12 text-center text-sm text-navy-400">No tasks yet. Add your first task!</p>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {BOARD_COLUMNS.map((col, colIdx) => {
+            const colTasks = tasks.filter((t) => t.status === col.status);
+            return (
+              <div key={col.status} className="space-y-2">
+                <div className={`rounded-lg border-t-2 bg-navy-50 px-2 py-1.5 dark:bg-navy-800/50 ${col.accent}`}>
+                  <p className="text-[11px] font-bold text-navy-700 dark:text-navy-200">{col.label}</p>
+                  <p className="text-[10px] text-navy-400">{colTasks.length}</p>
+                </div>
+                {colTasks.map((task) => {
+                  const priorityStyle = TASK_PRIORITIES.find((p) => p.value === task.priority);
+                  return (
+                    <div key={task.id} className="rounded-lg bg-white p-2 shadow-sm dark:bg-navy-900">
+                      <p className={`text-[11px] font-medium leading-snug ${task.status === "completed" ? "text-navy-400 line-through" : "text-navy-900 dark:text-navy-100"}`}>
+                        {task.title}
+                      </p>
+                      <span className={`mt-1 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${priorityStyle?.color}`}>
+                        {task.priority}
+                      </span>
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <button
+                          disabled={colIdx === 0}
+                          onClick={() => setStatus(task, BOARD_COLUMNS[colIdx - 1]?.status)}
+                          className="text-navy-300 disabled:opacity-20 hover:text-navy-600">
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(task.id)} className="text-navy-300 hover:text-red-500">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                        <button
+                          disabled={colIdx === BOARD_COLUMNS.length - 1}
+                          onClick={() => setStatus(task, BOARD_COLUMNS[colIdx + 1]?.status)}
+                          className="text-navy-300 disabled:opacity-20 hover:text-navy-600">
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -81,6 +81,8 @@ export type Event = {
   venue: string | null;
   status: "active" | "completed" | "cancelled";
   notes: string | null;
+  currency: string | null;
+  budget_alert_percent: number | null;
   created_at: string;
   updated_at: string;
 };

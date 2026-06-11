@@ -23,3 +23,23 @@ Date: ${data.date}
 
 This is an automated receipt from EventKhata.`;
 }
+
+export function getPaymentReminderMessage(data: {
+  vendorName: string;
+  amount: number;
+  dueDate: string;
+  label: string;
+  overdue: boolean;
+}): string {
+  const greeting = `Dear ${data.vendorName},`;
+  const line = data.overdue
+    ? `This is a gentle reminder that a payment of ₹${data.amount.toLocaleString("en-IN")} (${data.label}) was due on ${data.dueDate} and is now pending.`
+    : `This is a reminder that a payment of ₹${data.amount.toLocaleString("en-IN")} (${data.label}) is due on ${data.dueDate}.`;
+  return `${greeting}
+
+${line}
+
+We'll process it shortly. Please share your latest payment details if anything has changed.
+
+Thank you!`;
+}
