@@ -28,23 +28,26 @@ export default function ReportsPage() {
   const [totalBudget, setTotalBudget] = useState(0);
   const [totalAgreed, setTotalAgreed] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
   const [monthlyData, setMonthlyData] = useState<{ month: string; paid: number; events: number }[]>([]);
 
   useEffect(() => { loadReports(); }, []);
 
   async function loadReports() {
-    const [eventsRes, ledgerRes, vendorsRes, contractsRes] = await Promise.all([
+    const [eventsRes, ledgerRes, vendorsRes, contractsRes, expensesRes] = await Promise.all([
       supabase.from("events").select("*").order("event_date", { ascending: false }),
       supabase.from("ledger").select("*"),
       supabase.from("vendors").select("id, name, category"),
       supabase.from("contracts").select("*, vendor:vendors(category)"),
+      supabase.from("expenses").select("amount"),
     ]);
 
     const events = eventsRes.data || [];
     const ledger = ledgerRes.data || [];
     const vendors = vendorsRes.data || [];
     const contracts = contractsRes.data || [];
+    const tExpenses = (expensesRes.data || []).reduce((s: number, e: any) => s + Number(e.amount), 0);
 
     // Event reports with P&L
     const eReports: EventReport[] = events.map((event) => {
@@ -134,7 +137,8 @@ export default function ReportsPage() {
     setTotalBudget(tBudget);
     setTotalAgreed(tAgreed);
     setTotalPaid(tPaid);
-    setTotalProfit(tBudget - tAgreed);
+    setTotalExpenses(tExpenses);
+    setTotalProfit(tBudget - tAgreed - tExpenses);
     setMonthlyData(monthlyChartData);
     setLoading(false);
   }
@@ -208,7 +212,11 @@ export default function ReportsPage() {
               <p className="text-xs text-navy-500">Total Paid Out</p>
               <p className="text-xl font-bold text-amber-600">{formatCurrency(totalPaid)}</p>
             </div>
-            <div className={`rounded-xl p-4 shadow-sm ${totalProfit >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+              <p className="text-xs text-navy-500">Misc Expenses</p>
+              <p className="text-xl font-bold text-orange-600">{formatCurrency(totalExpenses)}</p>
+            </div>
+            <div className={`rounded-xl p-4 shadow-sm ${totalProfit >= 0 ? "bg-emerald-50 dark:bg-emerald-900/20" : "bg-red-50 dark:bg-red-900/20"}`}>
               <p className="text-xs text-navy-500">Estimated Profit</p>
               <div className="flex items-center gap-1">
                 {totalProfit >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}

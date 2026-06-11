@@ -39,6 +39,7 @@ export default function EventDetailPage() {
   const [subEvents, setSubEvents] = useState<SubEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [guestCount, setGuestCount] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,13 +47,14 @@ export default function EventDetailPage() {
   }, [eventId]);
 
   async function loadData() {
-    const [eventRes, contractsRes, ledgerRes, subEventsRes, tasksRes, guestsRes] = await Promise.all([
+    const [eventRes, contractsRes, ledgerRes, subEventsRes, tasksRes, guestsRes, expensesRes] = await Promise.all([
       supabase.from("events").select("*").eq("id", eventId).single(),
       supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
       supabase.from("ledger").select("*, vendor:vendors(*)").eq("event_id", eventId).order("recorded_at", { ascending: false }),
       supabase.from("sub_events").select("*").eq("event_id", eventId).order("date", { ascending: true, nullsFirst: false }).order("sort_order"),
       supabase.from("tasks").select("*").eq("event_id", eventId),
       supabase.from("guests").select("id", { count: "exact" }).eq("event_id", eventId),
+      supabase.from("expenses").select("amount").eq("event_id", eventId),
     ]);
 
     if (eventRes.error) console.error("[EventDetail] Failed to load event:", eventRes.error.message, eventRes.error);
@@ -65,6 +67,7 @@ export default function EventDetailPage() {
     if (subEventsRes.data) setSubEvents(subEventsRes.data);
     if (tasksRes.data) setTasks(tasksRes.data);
     setGuestCount(guestsRes.count || 0);
+    setTotalExpenses((expensesRes.data || []).reduce((s: number, e: any) => s + Number(e.amount), 0));
     setLoading(false);
   }
 
@@ -321,6 +324,16 @@ export default function EventDetailPage() {
             <p className="text-sm font-bold text-amber-600">{formatCurrency(Math.max(0, totalAgreed - totalSpent))}</p>
           </div>
         </div>
+      )}
+
+      {/* Misc expenses link */}
+      {totalExpenses > 0 && (
+        <Link href="/expenses" className="mb-4 flex items-center justify-between rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+          <span className="flex items-center gap-2 text-sm text-navy-600 dark:text-navy-300">
+            <FileText className="h-4 w-4" /> Misc expenses
+          </span>
+          <span className="font-bold text-navy-900 dark:text-navy-100">{formatCurrency(totalExpenses)}</span>
+        </Link>
       )}
 
       {/* Event Readiness */}
