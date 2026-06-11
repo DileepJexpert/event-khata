@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/currency-input";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle, MessageCircle } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle, MessageCircle, Zap, IndianRupee } from "lucide-react";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
 import { getWhatsAppShareURL, getPaymentReminderMessage } from "@/lib/whatsapp";
+import { checkWhatsAppAPI, sendWhatsAppMessage } from "@/lib/whatsapp-api";
+import { isRazorpayEnabled, createPaymentLink } from "@/lib/razorpay";
 import Link from "next/link";
 import type { PaymentSchedule, Contract, Vendor } from "@/lib/types";
 
@@ -26,12 +28,19 @@ export default function PaymentSchedulePage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [whatsappAPI, setWhatsappAPI] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [razorpayEnabled, setRazorpayEnabled] = useState(false);
+  const [sendingPaymentLink, setSendingPaymentLink] = useState<string | null>(null);
+
   const [contractId, setContractId] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [label, setLabel] = useState("Payment");
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { checkWhatsAppAPI().then(setWhatsappAPI); }, []);
+  useEffect(() => { isRazorpayEnabled().then(setRazorpayEnabled); }, []);
 
   async function load() {
     const [schRes, conRes] = await Promise.all([
@@ -92,7 +101,7 @@ export default function PaymentSchedulePage() {
     load();
   }
 
-  function remindVendor(sch: PaymentSchedule & { vendor?: Vendor }) {
+  async function remindVendor(sch: PaymentSchedule & { vendor?: Vendor }) {
     if (!sch.vendor?.phone) {
       addToast({ title: "No phone number", description: "Add a phone number for this vendor first.", variant: "destructive" });
       return;
@@ -105,7 +114,49 @@ export default function PaymentSchedulePage() {
       label: sch.label,
       overdue: !!isOverdue,
     });
-    window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
+
+    if (whatsappAPI) {
+      setSendingReminder(sch.id);
+      const result = await sendWhatsAppMessage({ phone: sch.vendor.phone, message: msg });
+      setSendingReminder(null);
+      if (result.success) {
+        addToast({ title: "Reminder sent", description: `WhatsApp message sent to ${sch.vendor.name}`, variant: "success" });
+      } else {
+        addToast({ title: "Failed to send", description: result.error || "Could not send WhatsApp message", variant: "destructive" });
+      }
+    } else {
+      window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
+    }
+  }
+
+  async function sendPaymentLinkForSchedule(sch: PaymentSchedule & { vendor?: Vendor }) {
+    if (!sch.vendor) return;
+    setSendingPaymentLink(sch.id);
+    try {
+      const result = await createPaymentLink({
+        amount: sch.amount,
+        currency: "INR",
+        description: `${sch.label} - ${sch.vendor.name}`,
+        customer_name: sch.vendor.name,
+        customer_phone: sch.vendor.phone || undefined,
+        customer_email: sch.vendor.email || undefined,
+        reference_id: `ps_${sch.id}`,
+      });
+
+      addToast({ title: "Payment link created!", variant: "success" });
+
+      if (sch.vendor.phone) {
+        const msg = `Hi ${sch.vendor.name},\n\nHere is your payment link for ${sch.label}:\n\nAmount: ${formatCurrency(sch.amount)}\nDue: ${formatDate(sch.due_date)}\n\n${result.short_url}\n\nThank you!`;
+        window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
+      } else {
+        await navigator.clipboard.writeText(result.short_url);
+        addToast({ title: "Payment link copied to clipboard", variant: "success" });
+      }
+    } catch (err: any) {
+      addToast({ title: "Failed to create payment link", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingPaymentLink(null);
+    }
   }
 
   const totalDue = schedules.filter((s) => s.status !== "paid").reduce((sum, s) => sum + s.amount, 0);
@@ -204,9 +255,25 @@ export default function PaymentSchedulePage() {
                   <Button size="sm" variant="success" onClick={() => markPaid(sch.id)} className="flex-1">
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Mark Paid
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => remindVendor(sch)} title="Send WhatsApp reminder">
-                    <MessageCircle className="h-3 w-3" />
+                  <Button size="sm" variant="outline" onClick={() => remindVendor(sch)} disabled={sendingReminder === sch.id} title={whatsappAPI ? "Auto-send WhatsApp reminder" : "Send WhatsApp reminder"}>
+                    {sendingReminder === sch.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <MessageCircle className="h-3 w-3" />
+                        {whatsappAPI && <Zap className="h-2 w-2 text-amber-500" />}
+                      </>
+                    )}
                   </Button>
+                  {razorpayEnabled && (
+                    <Button size="sm" variant="outline" onClick={() => sendPaymentLinkForSchedule(sch)} disabled={sendingPaymentLink === sch.id} title="Send payment link">
+                      {sendingPaymentLink === sch.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <IndianRupee className="h-3 w-3 text-blue-600" />
+                      )}
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => handleDelete(sch.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>

@@ -43,3 +43,20 @@ We'll process it shortly. Please share your latest payment details if anything h
 
 Thank you!`;
 }
+
+export function getEventUpdateMessage(data: {
+  clientName: string;
+  eventType: string;
+  updateText: string;
+}): string {
+  return `Dear ${data.clientName},
+
+Here is an update regarding your ${data.eventType}:
+
+${data.updateText}
+
+If you have any questions, feel free to reach out.
+
+Best regards,
+EventKhata`;
+}

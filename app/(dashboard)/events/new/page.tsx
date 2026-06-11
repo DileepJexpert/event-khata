@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/currency-input";
-import { ArrowLeft, Loader2, Save, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Sparkles, ChevronDown, ChevronUp, Brain, Lightbulb, X } from "lucide-react";
 import Link from "next/link";
-import { EVENT_TYPES, isValidPhone } from "@/lib/utils";
+import { EVENT_TYPES, isValidPhone, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { SYSTEM_TEMPLATES } from "@/lib/event-templates";
+import { checkAIEnabled, getBudgetSuggestion, type BudgetSplitItem } from "@/lib/ai";
 
 type TemplateShape = {
   name: string;
@@ -32,6 +33,10 @@ export default function NewEventPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [showTemplates, setShowTemplates] = useState(true);
   const [templates, setTemplates] = useState<TemplateShape[]>(SYSTEM_TEMPLATES as unknown as TemplateShape[]);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiBudgetSplit, setAiBudgetSplit] = useState<Record<string, BudgetSplitItem> | null>(null);
+  const [showAiSuggestion, setShowAiSuggestion] = useState(true);
   const [form, setForm] = useState({
     client_name: "",
     client_phone: "",
@@ -58,7 +63,28 @@ export default function NewEventPage() {
           setTemplates([...(SYSTEM_TEMPLATES as unknown as TemplateShape[]), ...custom]);
         }
       });
+    // Check if AI features are available
+    checkAIEnabled().then(setAiEnabled);
   }, []);
+
+  async function handleAiBudgetSuggestion() {
+    if (!form.total_budget || !form.event_type) return;
+    setAiLoading(true);
+    setAiBudgetSplit(null);
+    try {
+      const result = await getBudgetSuggestion({
+        event_type: form.event_type,
+        total_budget: Number(form.total_budget),
+        city: form.venue || undefined,
+      });
+      setAiBudgetSplit(result.budget_split);
+      setShowAiSuggestion(true);
+    } catch (err: any) {
+      addToast({ title: "AI suggestion failed", description: err.message, variant: "destructive" });
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   function selectTemplate(index: number) {
     const template = templates[index];
@@ -263,6 +289,57 @@ export default function NewEventPage() {
             <p className="text-xs text-purple-600">
               Budget will be auto-split across functions based on template
             </p>
+          )}
+          {/* AI Budget Suggestion Button */}
+          {aiEnabled && form.total_budget && form.event_type && (
+            <button
+              type="button"
+              onClick={handleAiBudgetSuggestion}
+              disabled={aiLoading}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-50 to-blue-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-all hover:from-purple-100 hover:to-blue-100 disabled:opacity-50 dark:from-purple-950 dark:to-blue-950 dark:text-purple-300 dark:hover:from-purple-900 dark:hover:to-blue-900"
+            >
+              {aiLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {aiLoading ? "Thinking..." : "AI Suggest Budget Split"}
+            </button>
+          )}
+          {/* AI Budget Split Results */}
+          {aiBudgetSplit && showAiSuggestion && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:border-purple-800 dark:from-purple-950/50 dark:via-navy-900 dark:to-blue-950/50">
+              <div className="flex items-center justify-between border-b border-purple-100 px-4 py-2.5 dark:border-purple-800">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-semibold text-purple-900 dark:text-purple-200">AI Budget Suggestion</span>
+                </div>
+                <button type="button" onClick={() => setShowAiSuggestion(false)} className="rounded-full p-1 hover:bg-purple-100 dark:hover:bg-purple-800">
+                  <X className="h-3.5 w-3.5 text-purple-400" />
+                </button>
+              </div>
+              <div className="divide-y divide-purple-100 dark:divide-purple-800">
+                {Object.entries(aiBudgetSplit).map(([category, item]) => (
+                  <div key={category} className="px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-navy-900 dark:text-navy-100">{category}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-navy-900 dark:text-navy-100">{formatCurrency(item.amount)}</span>
+                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                          {item.percent}%
+                        </span>
+                      </div>
+                    </div>
+                    {item.tips && (
+                      <div className="mt-1 flex items-start gap-1">
+                        <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0 text-amber-500" />
+                        <p className="text-xs text-navy-500 dark:text-navy-400">{item.tips}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

@@ -13,12 +13,13 @@ import { BudgetDonut } from "@/components/budget-donut";
 import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
-  Send, Copy, Save, AlertTriangle,
+  Send, Copy, Save, AlertTriangle, Sparkles, Loader2, X, Lightbulb, Brain, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
 import { useToast } from "@/components/ui/toast";
 import type { Event, Vendor, Contract, LedgerEntry, SubEvent, Task } from "@/lib/types";
+import { checkAIEnabled, getVendorSuggestion, type VendorSuggestionResponse } from "@/lib/ai";
 
 const TYPE_EMOJI: Record<string, string> = {
   mehendi: "🌿", sangeet: "🎶", haldi: "💛", wedding: "💍",
@@ -41,9 +42,14 @@ export default function EventDetailPage() {
   const [guestCount, setGuestCount] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTips, setAiTips] = useState<VendorSuggestionResponse | null>(null);
+  const [showAiTips, setShowAiTips] = useState(false);
 
   useEffect(() => {
     loadData();
+    checkAIEnabled().then(setAiEnabled);
   }, [eventId]);
 
   async function loadData() {
@@ -69,6 +75,25 @@ export default function EventDetailPage() {
     setGuestCount(guestsRes.count || 0);
     setTotalExpenses((expensesRes.data || []).reduce((s: number, e: any) => s + Number(e.amount), 0));
     setLoading(false);
+  }
+
+  async function handleAiTips() {
+    if (!event) return;
+    setAiLoading(true);
+    setShowAiTips(true);
+    try {
+      const result = await getVendorSuggestion({
+        event_type: event.event_type,
+        budget: Number(event.total_budget) || 0,
+        city: event.venue || undefined,
+      });
+      setAiTips(result);
+    } catch (err: any) {
+      addToast({ title: "AI tips failed", description: err.message, variant: "destructive" });
+      setShowAiTips(false);
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   if (loading) {
@@ -472,7 +497,93 @@ export default function EventDetailPage() {
           <Save className="h-4 w-4" />
           <span>Save as reusable template</span>
         </button>
+        {aiEnabled && (
+          <button
+            onClick={handleAiTips}
+            disabled={aiLoading}
+            className="flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 p-3 text-sm font-medium text-purple-700 shadow-sm transition-all hover:from-purple-100 hover:to-blue-100 disabled:opacity-50 dark:from-purple-950 dark:to-blue-950 dark:text-purple-300 dark:hover:from-purple-900 dark:hover:to-blue-900"
+          >
+            {aiLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            <span>{aiLoading ? "Getting AI tips..." : "AI Tips & Budget Advice"}</span>
+          </button>
+        )}
       </div>
+
+      {/* AI Tips Section */}
+      {showAiTips && (
+        <div className="mb-4 overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:border-purple-800 dark:from-purple-950/50 dark:via-navy-900 dark:to-blue-950/50">
+          <div className="flex items-center justify-between border-b border-purple-100 px-4 py-3 dark:border-purple-800">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-sm font-semibold text-purple-900 dark:text-purple-200">AI Vendor & Budget Tips</span>
+            </div>
+            <button onClick={() => setShowAiTips(false)} className="rounded-full p-1 hover:bg-purple-100 dark:hover:bg-purple-800">
+              <X className="h-3.5 w-3.5 text-purple-400" />
+            </button>
+          </div>
+          {aiLoading ? (
+            <div className="flex items-center justify-center gap-2 p-8">
+              <Loader2 className="h-5 w-5 animate-spin text-purple-500" />
+              <span className="text-sm text-purple-600 dark:text-purple-400">Analyzing your event...</span>
+            </div>
+          ) : aiTips ? (
+            <div className="space-y-4 p-4">
+              {/* Overview */}
+              <div>
+                <p className="text-sm text-navy-700 dark:text-navy-300">{aiTips.suggestions}</p>
+              </div>
+
+              {/* Price Range */}
+              {aiTips.price_range && (
+                <div className="rounded-lg bg-purple-100/50 p-3 dark:bg-purple-900/30">
+                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">Typical Price Range</p>
+                  <p className="mt-1 text-sm font-bold text-navy-900 dark:text-navy-100">
+                    {formatCurrency(aiTips.price_range.min)} - {formatCurrency(aiTips.price_range.max)}
+                  </p>
+                </div>
+              )}
+
+              {/* Checklist */}
+              {aiTips.checklist && aiTips.checklist.length > 0 && (
+                <div>
+                  <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
+                    <ListChecks className="h-3.5 w-3.5" /> What to Look For
+                  </p>
+                  <ul className="space-y-1.5">
+                    {aiTips.checklist.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-navy-600 dark:text-navy-400">
+                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-purple-400" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Negotiation Tips */}
+              {aiTips.negotiation_tips && aiTips.negotiation_tips.length > 0 && (
+                <div>
+                  <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
+                    <Lightbulb className="h-3.5 w-3.5" /> Negotiation Tips
+                  </p>
+                  <ul className="space-y-1.5">
+                    {aiTips.negotiation_tips.map((tip, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-navy-600 dark:text-navy-400">
+                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* Payment History */}
       {ledgerEntries.length > 0 && (
