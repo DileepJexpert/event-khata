@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor, Lock, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
@@ -94,6 +94,34 @@ export default function SettingsPage() {
       addToast({ title: "Settings saved!", variant: "success" });
     }
     setSaving(false);
+  }
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  async function handleChangePassword() {
+    if (!newPassword || newPassword.length < 6) {
+      addToast({ title: "Password too short", description: "Minimum 6 characters required", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      addToast({ title: "Passwords don't match", variant: "destructive" });
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      addToast({ title: "Failed to change password", description: error.message, variant: "destructive" });
+    } else {
+      addToast({ title: "Password changed!", variant: "success" });
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowChangePassword(false);
+    }
+    setChangingPassword(false);
   }
 
   const [exporting, setExporting] = useState(false);
@@ -203,6 +231,61 @@ export default function SettingsPage() {
             <p className="text-sm text-navy-500">{userEmail}</p>
           </div>
         </div>
+      </div>
+
+      {/* Change Password */}
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+        <button
+          onClick={() => setShowChangePassword(!showChangePassword)}
+          className="flex w-full items-center gap-3"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy-100 dark:bg-navy-800">
+            <Lock className="h-5 w-5 text-navy-600 dark:text-navy-400" />
+          </div>
+          <div className="flex-1 text-left">
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Change Password</h2>
+            <p className="text-sm text-navy-500">Update your login password</p>
+          </div>
+        </button>
+        {showChangePassword && (
+          <div className="mt-4 space-y-3">
+            <div className="space-y-2">
+              <Label>New Password</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimum 6 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-400"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Confirm Password</Label>
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter password"
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changingPassword || !newPassword || !confirmPassword}
+              className="w-full"
+            >
+              {changingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+              Update Password
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Agency Profile */}
