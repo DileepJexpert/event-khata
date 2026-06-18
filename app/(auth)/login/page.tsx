@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail, LogIn, UserPlus } from "lucide-react";
+import { Loader2, Mail, LogIn, UserPlus, Ban } from "lucide-react";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [disabled, setDisabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("disabled") === "1") {
+      setDisabled(true);
+    }
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -45,9 +52,18 @@ export default function LoginPage() {
     if (data.user) {
       const { data: agency } = await supabase
         .from("agencies")
-        .select("id")
+        .select("id, is_active")
         .eq("id", data.user.id)
-        .single();
+        .maybeSingle();
+
+      // Account disabled by admin → block entry.
+      if (agency && agency.is_active === false) {
+        await supabase.auth.signOut();
+        setDisabled(true);
+        setError("");
+        setLoading(false);
+        return;
+      }
 
       window.location.href = agency ? "/events" : "/onboard";
     }
@@ -126,6 +142,15 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg">
+        {disabled && (
+          <div className="mb-4 flex items-start gap-3 rounded-lg bg-red-50 p-3">
+            <Ban className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+            <div>
+              <p className="text-sm font-semibold text-red-700">Account disabled</p>
+              <p className="text-xs text-red-600">Your access has been suspended. Please contact support to reactivate your account.</p>
+            </div>
+          </div>
+        )}
         <form onSubmit={mode === "login" ? handleLogin : mode === "signup" ? handleSignup : handleReset} className="space-y-4">
           <div className="text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-navy-100">

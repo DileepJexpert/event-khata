@@ -17,16 +17,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.replace("/login");
-      } else {
-        // Load the agency's preferred currency once so formatCurrency uses it app-wide.
-        supabase
-          .from("agencies")
-          .select("currency")
-          .eq("id", user.id)
-          .maybeSingle()
-          .then(({ data }) => setActiveCurrency(data?.currency));
-        setChecked(true);
+        return;
       }
+      // Load the agency's status + preferred currency.
+      const { data: agency } = await supabase
+        .from("agencies")
+        .select("currency, is_active")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // Blocked by admin → sign out and bounce to login with a notice.
+      if (agency && agency.is_active === false) {
+        await supabase.auth.signOut();
+        router.replace("/login?disabled=1");
+        return;
+      }
+
+      setActiveCurrency(agency?.currency);
+      setChecked(true);
     }
     check();
   }, [pathname]);
