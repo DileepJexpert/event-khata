@@ -122,7 +122,7 @@ export default function PublicInvitePage() {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: `${accent}18` }}>
               <PartyPopper className="h-6 w-6" style={{ color: accent }} />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent }}>You're Invited</p>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent }}>You&apos;re Invited</p>
             <h1 className="mt-2 text-3xl font-bold text-navy-900">{invite?.title}</h1>
             {invite?.host_names && <p className="mt-1 text-navy-500">{invite.host_names}</p>}
             {invite?.message && <p className="mt-4 text-sm leading-relaxed text-navy-600">{invite.message}</p>}
