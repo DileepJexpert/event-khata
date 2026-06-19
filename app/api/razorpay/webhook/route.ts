@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+
+function getServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,20 +15,30 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get("x-razorpay-signature");
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-    // Verify signature if webhook secret is configured
-    if (webhookSecret && signature) {
-      const expectedSignature = crypto
-        .createHmac("sha256", webhookSecret)
-        .update(rawBody)
-        .digest("hex");
+    if (!webhookSecret) {
+      return NextResponse.json(
+        { error: "Webhook not configured" },
+        { status: 503 }
+      );
+    }
 
-      if (signature !== expectedSignature) {
-        console.error("Razorpay webhook signature mismatch");
-        return NextResponse.json(
-          { error: "Invalid signature" },
-          { status: 400 }
-        );
-      }
+    if (!signature) {
+      return NextResponse.json(
+        { error: "Missing signature" },
+        { status: 400 }
+      );
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(rawBody)
+      .digest("hex");
+
+    if (signature !== expectedSignature) {
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 400 }
+      );
     }
 
     const payload = JSON.parse(rawBody);
@@ -32,11 +49,10 @@ export async function POST(req: NextRequest) {
       const referenceId = paymentLink?.reference_id;
 
       if (!referenceId) {
-        // No reference_id to reconcile — acknowledge anyway
         return NextResponse.json({ status: "ok" });
       }
 
-      const supabase = await createClient();
+      const supabase = getServiceClient();
 
       if (referenceId.startsWith("inv_")) {
         const invoiceId = referenceId.slice(4);
@@ -44,7 +60,7 @@ export async function POST(req: NextRequest) {
           .from("invoices")
           .update({
             status: "paid",
-            amount_paid: paymentLink.amount / 100, // Convert paise to rupees
+            amount_paid: paymentLink.amount / 100,
           })
           .eq("id", invoiceId);
 
@@ -70,6 +86,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ok" });
   } catch (error) {
     console.error("Razorpay webhook error:", error);
-    return NextResponse.json({ status: "ok" });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
