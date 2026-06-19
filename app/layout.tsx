@@ -6,12 +6,20 @@ import { AppInit } from "@/components/app-init";
 
 export const metadata: Metadata = {
   title: "EventKhata — Vendor Payment Tracker",
-  description: "Digital bahi khata for event planners. Track vendor payments, manage budgets, share reports.",
+  description: "Digital bahi khata for Indian event planners. Track vendor payments, manage budgets, generate invoices, and share real-time reports with clients.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "EventKhata",
+  },
+  applicationName: "EventKhata",
+  keywords: ["event planner", "vendor payments", "bahi khata", "wedding planner", "budget tracker", "India"],
+  openGraph: {
+    title: "EventKhata — Vendor Payment Tracker",
+    description: "Digital bahi khata for Indian event planners. Track vendor payments, manage budgets, share reports.",
+    siteName: "EventKhata",
+    type: "website",
   },
 };
 
