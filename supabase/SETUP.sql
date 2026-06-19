@@ -521,5 +521,115 @@ END $$;
 --
 
 -- ============================================================
+-- STEP 7: ADDITIONAL TABLES (Vendor Reviews, Activity Log)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS vendor_reviews (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  agency_id UUID NOT NULL,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE NOT NULL,
+  event_id UUID REFERENCES events(id) ON DELETE SET NULL,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review TEXT,
+  punctuality INTEGER CHECK (punctuality >= 1 AND punctuality <= 5),
+  quality INTEGER CHECK (quality >= 1 AND quality <= 5),
+  value_for_money INTEGER CHECK (value_for_money >= 1 AND value_for_money <= 5),
+  communication INTEGER CHECK (communication >= 1 AND communication <= 5),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_reviews_vendor ON vendor_reviews(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_reviews_agency ON vendor_reviews(agency_id);
+ALTER TABLE vendor_reviews DISABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  agency_id UUID NOT NULL,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('event', 'vendor', 'payment', 'invoice', 'proposal', 'lead', 'task', 'guest')),
+  entity_id UUID,
+  action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted', 'status_changed', 'payment_made', 'shared')),
+  description TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_agency ON activity_log(agency_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
+ALTER TABLE activity_log DISABLE ROW LEVEL SECURITY;
+
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS state TEXT;
+
+-- ============================================================
+-- STEP 8: EXPANSION FEATURES (expenses, currency, e-invites)
+-- ============================================================
+
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'INR';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS currency TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS budget_alert_percent INTEGER DEFAULT 80;
+ALTER TABLE event_templates ADD COLUMN IF NOT EXISTS description TEXT;
+
+CREATE TABLE IF NOT EXISTS expenses (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE NOT NULL,
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  category TEXT DEFAULT 'other' CHECK (category IN (
+    'travel', 'food', 'accommodation', 'tips', 'supplies',
+    'transport', 'emergency', 'staff', 'misc', 'other'
+  )),
+  amount NUMERIC(12,2) NOT NULL,
+  payment_mode TEXT DEFAULT 'CASH' CHECK (payment_mode IN ('CASH', 'UPI', 'NEFT', 'CHEQUE', 'CARD')),
+  spent_on DATE DEFAULT CURRENT_DATE,
+  paid_by TEXT,
+  reimbursable BOOLEAN DEFAULT false,
+  reimbursed BOOLEAN DEFAULT false,
+  receipt_url TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_event ON expenses(event_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_agency ON expenses(agency_id);
+ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS event_invites (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE NOT NULL,
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT,
+  host_names TEXT,
+  venue TEXT,
+  event_date DATE,
+  event_time TEXT,
+  theme_color TEXT DEFAULT '#0f172a',
+  cover_image_url TEXT,
+  collect_meal_preference BOOLEAN DEFAULT true,
+  collect_plus_count BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_invites_token ON event_invites(token);
+CREATE INDEX IF NOT EXISTS idx_invites_event ON event_invites(event_id);
+ALTER TABLE event_invites DISABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS rsvp_responses (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  invite_id UUID REFERENCES event_invites(id) ON DELETE CASCADE NOT NULL,
+  event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
+  guest_name TEXT NOT NULL,
+  guest_phone TEXT,
+  attending TEXT DEFAULT 'confirmed' CHECK (attending IN ('confirmed', 'declined', 'maybe')),
+  plus_count INTEGER DEFAULT 0,
+  meal_preference TEXT DEFAULT 'no_preference' CHECK (meal_preference IN ('veg', 'non_veg', 'jain', 'vegan', 'no_preference')),
+  message TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rsvp_invite ON rsvp_responses(invite_id);
+CREATE INDEX IF NOT EXISTS idx_rsvp_event ON rsvp_responses(event_id);
+ALTER TABLE rsvp_responses DISABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- DONE! Your Event Khata instance is ready.
 -- ============================================================

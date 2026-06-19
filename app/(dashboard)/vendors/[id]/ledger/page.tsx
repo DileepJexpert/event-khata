@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, FileDown } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { generatePaymentReceiptPDF, downloadPDF } from "@/lib/pdf-generator";
 import Link from "next/link";
 import type { Vendor, LedgerEntry, Event } from "@/lib/types";
 
@@ -105,6 +106,25 @@ export default function VendorLedgerPage() {
                   <span>&middot;</span>
                   <span>{entry.payment_mode}</span>
                   {entry.reference_number && <span>&middot; Ref: {entry.reference_number}</span>}
+                  <button
+                    onClick={() => {
+                      const doc = generatePaymentReceiptPDF({
+                        event_name: (entry.event as any)?.client_name || "Event",
+                        vendor_name: vendor?.name || "Vendor",
+                        vendor_category: vendor?.category?.replace("_", " ") || undefined,
+                        amount: entry.amount,
+                        payment_mode: entry.payment_mode,
+                        txn_type: entry.txn_type,
+                        reference_number: entry.reference_number,
+                        notes: entry.notes,
+                        recorded_at: entry.recorded_at,
+                      });
+                      downloadPDF(doc, `receipt-${formatDate(entry.recorded_at)}.pdf`);
+                    }}
+                    className="ml-auto flex items-center gap-1 text-navy-400 hover:text-navy-700"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             </div>

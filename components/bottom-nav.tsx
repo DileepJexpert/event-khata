@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarDays, IndianRupee, Users, MoreHorizontal } from "lucide-react";
+import { Home, CalendarDays, IndianRupee, Users, MoreHorizontal, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -12,6 +12,8 @@ import {
   Settings,
   ClipboardList,
   Bell,
+  CalendarCheck,
+  Receipt,
 } from "lucide-react";
 
 const navItems = [
@@ -26,8 +28,10 @@ const moreItems = [
   { href: "/proposals", label: "Proposals", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/events/calendar", label: "Calendar", icon: CalendarCheck },
   { href: "/team", label: "Team", icon: Users },
   { href: "/notifications", label: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -51,7 +55,7 @@ export function BottomNav() {
   const isMoreActive = moreItems.some((item) => pathname.startsWith(item.href));
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-navy-100 bg-white pb-[var(--safe-area-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-navy-100 bg-white pb-[var(--safe-area-bottom)] dark:border-navy-800 dark:bg-navy-900">
       <div className="mx-auto flex max-w-lg items-center justify-around">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
@@ -106,7 +110,7 @@ export function BottomNav() {
           </button>
 
           {showMore && (
-            <div className="absolute bottom-full right-0 mb-2 w-48 rounded-xl border border-navy-100 bg-white py-2 shadow-lg">
+            <div className="absolute bottom-full right-0 mb-2 w-48 rounded-xl border border-navy-100 bg-white py-2 shadow-lg dark:border-navy-700 dark:bg-navy-800">
               {moreItems.map((item) => (
                 <Link
                   key={item.href}
@@ -115,8 +119,8 @@ export function BottomNav() {
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 text-sm transition-colors",
                     pathname.startsWith(item.href)
-                      ? "bg-navy-50 font-semibold text-navy-900"
-                      : "text-navy-600 hover:bg-navy-50"
+                      ? "bg-navy-50 font-semibold text-navy-900 dark:bg-navy-700 dark:text-navy-100"
+                      : "text-navy-600 hover:bg-navy-50 dark:text-navy-300 dark:hover:bg-navy-700"
                   )}
                 >
                   <item.icon className="h-4 w-4" />

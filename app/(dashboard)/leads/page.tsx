@@ -73,7 +73,7 @@ export default function LeadsPage() {
     <div className="px-4 pb-24 pt-4">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-navy-900">Leads</h1>
+          <h1 className="text-2xl font-bold text-navy-900 dark:text-navy-100">Leads</h1>
           <p className="text-sm text-navy-500">{leads.length} total inquiries</p>
         </div>
         <Link href="/leads/new">
@@ -84,13 +84,13 @@ export default function LeadsPage() {
       {/* Pipeline stats */}
       <div className="mb-4 flex gap-2 overflow-x-auto">
         <button onClick={() => setFilterStatus("all")}
-          className={`flex-shrink-0 rounded-lg px-3 py-2 text-center ${filterStatus === "all" ? "bg-navy-900 text-white" : "bg-white shadow-sm"}`}>
+          className={`flex-shrink-0 rounded-lg px-3 py-2 text-center ${filterStatus === "all" ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900" : "bg-white shadow-sm dark:bg-navy-900"}`}>
           <p className="text-lg font-bold">{leads.length}</p>
           <p className="text-[10px]">All</p>
         </button>
         {stats.map((s) => (
           <button key={s.value} onClick={() => setFilterStatus(filterStatus === s.value ? "all" : s.value)}
-            className={`flex-shrink-0 rounded-lg px-3 py-2 text-center ${filterStatus === s.value ? s.color + " ring-2 ring-navy-300" : "bg-white shadow-sm"}`}>
+            className={`flex-shrink-0 rounded-lg px-3 py-2 text-center ${filterStatus === s.value ? s.color + " ring-2 ring-navy-300" : "bg-white shadow-sm dark:bg-navy-900"}`}>
             <p className="text-lg font-bold">{s.count}</p>
             <p className="text-[10px]">{s.label}</p>
           </button>
@@ -106,10 +106,10 @@ export default function LeadsPage() {
         {filtered.map((lead) => {
           const statusStyle = LEAD_STATUSES.find((s) => s.value === lead.status);
           return (
-            <div key={lead.id} className="rounded-xl bg-white p-4 shadow-sm">
+            <div key={lead.id} className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-navy-900">{lead.client_name}</h3>
+                  <h3 className="font-semibold text-navy-900 dark:text-navy-100">{lead.client_name}</h3>
                   <div className="mt-1 flex flex-wrap gap-2 text-xs text-navy-500">
                     {lead.event_type && <span className="capitalize">{lead.event_type}</span>}
                     {lead.event_date && <span>&middot; {formatDate(lead.event_date)}</span>}
@@ -126,7 +126,7 @@ export default function LeadsPage() {
 
               <div className="mt-3 flex items-center gap-2">
                 {lead.client_phone && (
-                  <a href={`tel:${lead.client_phone}`} className="flex items-center gap-1 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700">
+                  <a href={`tel:${lead.client_phone}`} className="flex items-center gap-1 rounded-lg bg-navy-50 px-3 py-1.5 text-xs font-medium text-navy-700 dark:bg-navy-800 dark:text-navy-300">
                     <Phone className="h-3 w-3" /> Call
                   </a>
                 )}
@@ -139,7 +139,7 @@ export default function LeadsPage() {
                   <select
                     value={lead.status}
                     onChange={(e) => updateStatus(lead.id, e.target.value)}
-                    className="rounded-lg border border-navy-200 px-2 py-1 text-xs"
+                    className="rounded-lg border border-navy-200 px-2 py-1 text-xs dark:border-navy-700 dark:bg-navy-800 dark:text-navy-200"
                   >
                     {LEAD_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>

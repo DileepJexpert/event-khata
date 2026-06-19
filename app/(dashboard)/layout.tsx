@@ -10,7 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-navy-50">
+      <div className="min-h-screen bg-navy-50 dark:bg-navy-950">
         <div className="mx-auto max-w-lg pb-safe">{children}</div>
         <BottomNav />
       </div>

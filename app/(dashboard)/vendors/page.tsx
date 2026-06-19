@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Users, Phone, GitCompare } from "lucide-react";
+import { Plus, Search, Users, Phone, GitCompare, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatCurrency, VENDOR_CATEGORIES } from "@/lib/utils";
@@ -64,7 +64,7 @@ export default function VendorsPage() {
     <div className="px-4 pt-4">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-navy-900">Vendors</h1>
+          <h1 className="text-xl font-bold text-navy-900 dark:text-navy-100">Vendors</h1>
           <p className="text-sm text-navy-500">{vendors.length} vendors</p>
         </div>
         <Link href="/vendors/compare">
@@ -90,7 +90,7 @@ export default function VendorsPage() {
         <button
           onClick={() => setCategoryFilter("all")}
           className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            categoryFilter === "all" ? "bg-navy-900 text-white" : "bg-white text-navy-600"
+            categoryFilter === "all" ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900" : "bg-white text-navy-600 dark:bg-navy-800 dark:text-navy-300"
           }`}
         >
           All
@@ -100,7 +100,7 @@ export default function VendorsPage() {
             key={cat.value}
             onClick={() => setCategoryFilter(cat.value)}
             className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              categoryFilter === cat.value ? "bg-navy-900 text-white" : "bg-white text-navy-600"
+              categoryFilter === cat.value ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900" : "bg-white text-navy-600 dark:bg-navy-800 dark:text-navy-300"
             }`}
           >
             {cat.label}
@@ -111,7 +111,16 @@ export default function VendorsPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            <div key={i} className="rounded-xl border border-navy-100 bg-white p-4 dark:border-navy-800 dark:bg-navy-900">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="mb-1.5 h-4 w-28" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="h-5 w-16" />
+              </div>
+            </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -135,6 +144,11 @@ export default function VendorsPage() {
                         <Badge variant="secondary" className="text-xs capitalize">
                           {vendor.category.replace("_", " ")}
                         </Badge>
+                      )}
+                      {vendor.rating && vendor.rating > 0 && (
+                        <span className="flex items-center gap-0.5 text-xs text-amber-500">
+                          <Star className="h-3 w-3 fill-amber-400" /> {vendor.rating}
+                        </span>
                       )}
                       {vendor.phone && (
                         <span className="flex items-center gap-1 text-xs text-navy-400">

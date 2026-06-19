@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Search, Loader2, ChevronDown, ChevronUp,
-  CalendarDays, Users, IndianRupee,
+  CalendarDays, Users, IndianRupee, Ban, CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 
 type AgencyRow = {
   id: string;
@@ -19,6 +20,7 @@ type AgencyRow = {
   subscription_status: string;
   city: string | null;
   state: string | null;
+  is_active: boolean;
   created_at: string;
   last_active_at: string | null;
   eventCount: number;
@@ -28,6 +30,7 @@ type AgencyRow = {
 
 export default function AgenciesPage() {
   const supabase = createClient();
+  const { addToast } = useToast();
   const [agencies, setAgencies] = useState<AgencyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -35,6 +38,22 @@ export default function AgenciesPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<any>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  async function toggleAccess(agency: AgencyRow, e: React.MouseEvent) {
+    e.stopPropagation();
+    const next = !agency.is_active;
+    if (!next && !window.confirm(`Disable access for "${agency.name}"? They will be logged out and unable to sign in.`)) return;
+    setTogglingId(agency.id);
+    const { error } = await supabase.from("agencies").update({ is_active: next }).eq("id", agency.id);
+    if (error) {
+      addToast({ title: "Failed to update", description: error.message, variant: "destructive" });
+    } else {
+      setAgencies((prev) => prev.map((a) => (a.id === agency.id ? { ...a, is_active: next } : a)));
+      addToast({ title: next ? "Access enabled" : "Access disabled", variant: "success" });
+    }
+    setTogglingId(null);
+  }
 
   useEffect(() => {
     loadAgencies();
@@ -67,6 +86,7 @@ export default function AgenciesPage() {
 
     const rows: AgencyRow[] = (agRes.data || []).map((a) => ({
       ...a,
+      is_active: a.is_active !== false,
       eventCount: eventsByAgency.get(a.id) || 0,
       vendorCount: vendorsByAgency.get(a.id) || 0,
       totalVolume: volumeByAgency.get(a.id) || 0,
@@ -181,19 +201,24 @@ export default function AgenciesPage() {
                   )}
                 </div>
                 <div className="text-right">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    a.subscription_status === "pro" ? "bg-emerald-100 text-emerald-700" :
-                    a.subscription_status === "enterprise" ? "bg-amber-100 text-amber-700" :
-                    "bg-slate-100 text-slate-600"
-                  }`}>
-                    {a.subscription_status || "free"}
-                  </span>
+                  <div className="flex items-center justify-end gap-1.5">
+                    {!a.is_active && (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">disabled</span>
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      a.subscription_status === "pro" ? "bg-emerald-100 text-emerald-700" :
+                      a.subscription_status === "enterprise" ? "bg-amber-100 text-amber-700" :
+                      "bg-slate-100 text-slate-600"
+                    }`}>
+                      {a.subscription_status || "free"}
+                    </span>
+                  </div>
                   <p className="mt-1 text-xs text-slate-400">
                     {new Date(a.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "2-digit" })}
                   </p>
                 </div>
               </div>
-              <div className="mt-3 flex gap-4">
+              <div className="mt-3 flex items-center gap-4">
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <CalendarDays className="h-3.5 w-3.5" /> {a.eventCount} events
                 </div>
@@ -203,6 +228,24 @@ export default function AgenciesPage() {
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <IndianRupee className="h-3.5 w-3.5" /> {formatCurrency(a.totalVolume)}
                 </div>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => toggleAccess(a, e)}
+                  className={`ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    a.is_active
+                      ? "bg-red-50 text-red-600 hover:bg-red-100"
+                      : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                  }`}
+                >
+                  {togglingId === a.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : a.is_active ? (
+                    <><Ban className="h-3.5 w-3.5" /> Disable</>
+                  ) : (
+                    <><CheckCircle2 className="h-3.5 w-3.5" /> Enable</>
+                  )}
+                </span>
               </div>
             </button>
 

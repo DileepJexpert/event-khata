@@ -75,7 +75,7 @@ export default function EventsPage() {
     <div className="px-4 pt-4">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-navy-900">Events</h1>
+          <h1 className="text-xl font-bold text-navy-900 dark:text-navy-100">Events</h1>
           <p className="text-sm text-navy-500">{events.length} total events</p>
         </div>
         <div className="flex gap-2">
@@ -109,8 +109,8 @@ export default function EventsPage() {
             onClick={() => setFilter(s)}
             className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
               filter === s
-                ? "bg-navy-900 text-white"
-                : "bg-white text-navy-600 hover:bg-navy-100"
+                ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900"
+                : "bg-white text-navy-600 hover:bg-navy-100 dark:bg-navy-800 dark:text-navy-300 dark:hover:bg-navy-700"
             }`}
           >
             {s}
@@ -121,7 +121,17 @@ export default function EventsPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32 w-full rounded-xl" />
+            <div key={i} className="rounded-xl border border-navy-100 bg-white p-4 dark:border-navy-800 dark:bg-navy-900">
+              <div className="mb-3 flex items-start justify-between">
+                <div>
+                  <Skeleton className="mb-1.5 h-5 w-32" />
+                  <Skeleton className="h-3.5 w-20" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <Skeleton className="mb-3 h-3 w-40" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (

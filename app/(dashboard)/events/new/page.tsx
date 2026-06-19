@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/currency-input";
-import { ArrowLeft, Loader2, Save, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Sparkles, ChevronDown, ChevronUp, Brain, Lightbulb, X } from "lucide-react";
 import Link from "next/link";
-import { EVENT_TYPES } from "@/lib/utils";
+import { EVENT_TYPES, isValidPhone, formatCurrency } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
 import { SYSTEM_TEMPLATES } from "@/lib/event-templates";
+import { checkAIEnabled, getBudgetSuggestion, type BudgetSplitItem } from "@/lib/ai";
+
+type TemplateShape = {
+  name: string;
+  event_type: string;
+  sub_events: { name: string; type: string }[];
+  tasks: { title: string; priority: string; days_before: number }[];
+  budget_split: Record<string, number>;
+  is_custom?: boolean;
+};
 
 export default function NewEventPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [showTemplates, setShowTemplates] = useState(true);
+  const [templates, setTemplates] = useState<TemplateShape[]>(SYSTEM_TEMPLATES as unknown as TemplateShape[]);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiBudgetSplit, setAiBudgetSplit] = useState<Record<string, BudgetSplitItem> | null>(null);
+  const [showAiSuggestion, setShowAiSuggestion] = useState(true);
   const [form, setForm] = useState({
     client_name: "",
     client_phone: "",
@@ -29,14 +47,64 @@ export default function NewEventPage() {
     notes: "",
   });
 
+  useEffect(() => {
+    // Load the agency's saved custom templates and append them after system ones.
+    supabase.from("event_templates").select("*").eq("is_system", false).order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const custom: TemplateShape[] = data.map((t: any) => ({
+            name: t.name,
+            event_type: t.event_type,
+            sub_events: t.sub_events || [],
+            tasks: t.tasks || [],
+            budget_split: t.budget_split || {},
+            is_custom: true,
+          }));
+          setTemplates([...(SYSTEM_TEMPLATES as unknown as TemplateShape[]), ...custom]);
+        }
+      });
+    // Check if AI features are available
+    checkAIEnabled().then(setAiEnabled);
+  }, []);
+
+  async function handleAiBudgetSuggestion() {
+    if (!form.total_budget || !form.event_type) return;
+    setAiLoading(true);
+    setAiBudgetSplit(null);
+    try {
+      const result = await getBudgetSuggestion({
+        event_type: form.event_type,
+        total_budget: Number(form.total_budget),
+        city: form.venue || undefined,
+      });
+      setAiBudgetSplit(result.budget_split);
+      setShowAiSuggestion(true);
+    } catch (err: any) {
+      addToast({ title: "AI suggestion failed", description: err.message, variant: "destructive" });
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   function selectTemplate(index: number) {
-    const template = SYSTEM_TEMPLATES[index];
+    const template = templates[index];
     setSelectedTemplate(index);
     setForm({ ...form, event_type: template.event_type });
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!form.client_name.trim()) newErrors.client_name = "Client name is required";
+    if (form.client_phone && !isValidPhone(form.client_phone)) newErrors.client_phone = "Enter a valid 10-digit phone number";
+    if (form.total_budget && Number(form.total_budget) < 0) newErrors.total_budget = "Budget cannot be negative";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setLoading(true);
 
     const { requireUser } = await import("@/lib/auth");
@@ -58,13 +126,13 @@ export default function NewEventPage() {
       .single();
 
     if (error) {
-      console.error("[NewEvent] Failed to create event:", error.message, error);
+      addToast({ title: "Failed to create event", description: error.message, variant: "destructive" });
       setLoading(false);
       return;
     }
 
     if (data && selectedTemplate !== null) {
-      const template = SYSTEM_TEMPLATES[selectedTemplate];
+      const template = templates[selectedTemplate];
       const eventDate = form.event_date ? new Date(form.event_date) : null;
       const budget = form.total_budget ? Number(form.total_budget) : null;
 
@@ -107,7 +175,7 @@ export default function NewEventPage() {
   return (
     <div className="px-4 pt-4">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/events" className="rounded-full p-2 hover:bg-navy-100">
+        <Link href="/events" className="rounded-full p-2 hover:bg-navy-100 dark:hover:bg-navy-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-xl font-bold">New Event</h1>
@@ -128,14 +196,19 @@ export default function NewEventPage() {
         </button>
         {showTemplates && (
           <div className="grid grid-cols-2 gap-2">
-            {SYSTEM_TEMPLATES.map((template, i) => (
+            {templates.map((template, i) => (
               <button key={i} type="button" onClick={() => selectTemplate(i)}
                 className={`rounded-lg border-2 p-3 text-left transition-all ${
                   selectedTemplate === i
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-navy-100 bg-white hover:border-navy-200"
+                    ? "border-purple-500 bg-purple-50 dark:bg-purple-950"
+                    : "border-navy-100 bg-white hover:border-navy-200 dark:border-navy-700 dark:bg-navy-800 dark:hover:border-navy-600"
                 }`}>
-                <p className="text-sm font-semibold text-navy-900">{template.name}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{template.name}</p>
+                  {template.is_custom && (
+                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Saved</span>
+                  )}
+                </div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">
                     {template.sub_events.length} functions
@@ -163,10 +236,12 @@ export default function NewEventPage() {
             id="client_name"
             placeholder="e.g., Sharma Family"
             value={form.client_name}
-            onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+            onChange={(e) => { setForm({ ...form, client_name: e.target.value }); setErrors({ ...errors, client_name: "" }); }}
             required
             autoFocus
+            className={errors.client_name ? "border-red-500" : ""}
           />
+          {errors.client_name && <p className="text-xs text-red-500">{errors.client_name}</p>}
         </div>
 
         <div className="space-y-2">
@@ -176,9 +251,11 @@ export default function NewEventPage() {
             type="tel"
             placeholder="98765 43210"
             value={form.client_phone}
-            onChange={(e) => setForm({ ...form, client_phone: e.target.value })}
+            onChange={(e) => { setForm({ ...form, client_phone: e.target.value }); setErrors({ ...errors, client_phone: "" }); }}
             inputMode="numeric"
+            className={errors.client_phone ? "border-red-500" : ""}
           />
+          {errors.client_phone && <p className="text-xs text-red-500">{errors.client_phone}</p>}
         </div>
 
         <div className="space-y-2">
@@ -191,8 +268,8 @@ export default function NewEventPage() {
                 onClick={() => setForm({ ...form, event_type: type.value })}
                 className={`rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
                   form.event_type === type.value
-                    ? "border-navy-900 bg-navy-900 text-white"
-                    : "border-navy-200 bg-white text-navy-600 hover:border-navy-300"
+                    ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
+                    : "border-navy-200 bg-white text-navy-600 hover:border-navy-300 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-300 dark:hover:border-navy-600"
                 }`}
               >
                 {type.label}
@@ -212,6 +289,57 @@ export default function NewEventPage() {
             <p className="text-xs text-purple-600">
               Budget will be auto-split across functions based on template
             </p>
+          )}
+          {/* AI Budget Suggestion Button */}
+          {aiEnabled && form.total_budget && form.event_type && (
+            <button
+              type="button"
+              onClick={handleAiBudgetSuggestion}
+              disabled={aiLoading}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-50 to-blue-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-all hover:from-purple-100 hover:to-blue-100 disabled:opacity-50 dark:from-purple-950 dark:to-blue-950 dark:text-purple-300 dark:hover:from-purple-900 dark:hover:to-blue-900"
+            >
+              {aiLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              {aiLoading ? "Thinking..." : "AI Suggest Budget Split"}
+            </button>
+          )}
+          {/* AI Budget Split Results */}
+          {aiBudgetSplit && showAiSuggestion && (
+            <div className="mt-3 overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:border-purple-800 dark:from-purple-950/50 dark:via-navy-900 dark:to-blue-950/50">
+              <div className="flex items-center justify-between border-b border-purple-100 px-4 py-2.5 dark:border-purple-800">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-semibold text-purple-900 dark:text-purple-200">AI Budget Suggestion</span>
+                </div>
+                <button type="button" onClick={() => setShowAiSuggestion(false)} className="rounded-full p-1 hover:bg-purple-100 dark:hover:bg-purple-800">
+                  <X className="h-3.5 w-3.5 text-purple-400" />
+                </button>
+              </div>
+              <div className="divide-y divide-purple-100 dark:divide-purple-800">
+                {Object.entries(aiBudgetSplit).map(([category, item]) => (
+                  <div key={category} className="px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-navy-900 dark:text-navy-100">{category}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-navy-900 dark:text-navy-100">{formatCurrency(item.amount)}</span>
+                        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                          {item.percent}%
+                        </span>
+                      </div>
+                    </div>
+                    {item.tips && (
+                      <div className="mt-1 flex items-start gap-1">
+                        <Lightbulb className="mt-0.5 h-3 w-3 flex-shrink-0 text-amber-500" />
+                        <p className="text-xs text-navy-500 dark:text-navy-400">{item.tips}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

@@ -5,9 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Loader2, Send, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Send, Download, Trash2, FileDown, IndianRupee } from "lucide-react";
+import { generateInvoicePDF, downloadPDF } from "@/lib/pdf-generator";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { WhatsAppShare } from "@/components/whatsapp-share";
+import { isRazorpayEnabled, createPaymentLink } from "@/lib/razorpay";
+import { getWhatsAppShareURL } from "@/lib/whatsapp";
 import Link from "next/link";
 import type { Invoice } from "@/lib/types";
 
@@ -20,8 +24,11 @@ export default function InvoiceDetailPage() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [razorpayEnabled, setRazorpayEnabled] = useState(false);
+  const [sendingPaymentLink, setSendingPaymentLink] = useState(false);
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { isRazorpayEnabled().then(setRazorpayEnabled); }, []);
 
   async function load() {
     const { data } = await supabase.from("invoices").select("*").eq("id", invoiceId).single();
@@ -47,6 +54,15 @@ export default function InvoiceDetailPage() {
     router.push("/invoices");
   }
 
+  function handleDownloadPDF() {
+    if (!invoice) return;
+    const doc = generateInvoicePDF({
+      ...invoice,
+      items: invoice.items || [],
+    });
+    downloadPDF(doc, `${invoice.invoice_number}.pdf`);
+  }
+
   function getInvoiceText() {
     if (!invoice) return "";
     const lines = [
@@ -65,6 +81,39 @@ export default function InvoiceDetailPage() {
       invoice.notes || "",
     ].filter(Boolean);
     return lines.join("\n");
+  }
+
+  async function sendPaymentLink() {
+    if (!invoice) return;
+    setSendingPaymentLink(true);
+    try {
+      const result = await createPaymentLink({
+        amount: invoice.total - (invoice.amount_paid || 0),
+        currency: "INR",
+        description: `Invoice ${invoice.invoice_number}`,
+        customer_name: invoice.client_name,
+        customer_phone: invoice.client_phone || undefined,
+        customer_email: invoice.client_email || undefined,
+        reference_id: `inv_${invoice.id}`,
+      });
+
+      addToast({ title: "Payment link created!", variant: "success" });
+
+      // Open WhatsApp with the payment link
+      const msg = `Hi ${invoice.client_name},\n\nHere is your payment link for Invoice ${invoice.invoice_number}:\n\nAmount: ${formatCurrency(invoice.total - (invoice.amount_paid || 0))}\n\n${result.short_url}\n\nPlease complete the payment at your convenience. Thank you!`;
+      const phone = invoice.client_phone || "";
+      if (phone) {
+        window.open(getWhatsAppShareURL(phone, msg), "_blank");
+      } else {
+        // Copy link to clipboard if no phone
+        await navigator.clipboard.writeText(result.short_url);
+        addToast({ title: "Payment link copied to clipboard", variant: "success" });
+      }
+    } catch (err: any) {
+      addToast({ title: "Failed to create payment link", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingPaymentLink(false);
+    }
   }
 
   if (loading || !invoice) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy-400" /></div>;
@@ -152,7 +201,16 @@ export default function InvoiceDetailPage() {
 
       {/* Actions */}
       <div className="space-y-3">
+        <Button onClick={handleDownloadPDF} variant="outline" size="lg" className="w-full">
+          <FileDown className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
         <WhatsAppShare phone={invoice.client_phone} message={getInvoiceText()} label="Share via WhatsApp" />
+        {razorpayEnabled && ["draft", "sent", "overdue"].includes(invoice.status) && (
+          <Button onClick={sendPaymentLink} variant="outline" size="lg" className="w-full" disabled={sendingPaymentLink}>
+            {sendingPaymentLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <IndianRupee className="mr-2 h-4 w-4 text-blue-600" />}
+            Send Payment Link
+          </Button>
+        )}
         {invoice.status === "draft" && (
           <Button onClick={markSent} size="lg" className="w-full">
             <Send className="mr-2 h-4 w-4" /> Mark as Sent
@@ -163,9 +221,16 @@ export default function InvoiceDetailPage() {
             Mark as Paid
           </Button>
         )}
-        <Button onClick={handleDelete} variant="destructive" size="lg" className="w-full">
-          <Trash2 className="mr-2 h-4 w-4" /> Delete Invoice
-        </Button>
+        <ConfirmDialog
+          title="Delete Invoice"
+          message={`Are you sure you want to delete invoice ${invoice.invoice_number}? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+        >
+          <Button variant="destructive" size="lg" className="w-full">
+            <Trash2 className="mr-2 h-4 w-4" /> Delete Invoice
+          </Button>
+        </ConfirmDialog>
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/currency-input";
 import { useToast } from "@/components/ui/toast";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { EVENT_TYPES, LEAD_SOURCES } from "@/lib/utils";
+import { EVENT_TYPES, LEAD_SOURCES, isValidPhone, isValidEmail } from "@/lib/utils";
 import Link from "next/link";
 
 export default function NewLeadPage() {
@@ -19,6 +19,7 @@ export default function NewLeadPage() {
   const { addToast } = useToast();
 
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -31,7 +32,16 @@ export default function NewLeadPage() {
   const [notes, setNotes] = useState("");
 
   async function handleSave() {
-    if (!clientName.trim()) return;
+    const newErrors: Record<string, string> = {};
+    if (!clientName.trim()) newErrors.clientName = "Client name is required";
+    if (clientPhone && !isValidPhone(clientPhone)) newErrors.clientPhone = "Enter a valid 10-digit phone number";
+    if (clientEmail && !isValidEmail(clientEmail)) newErrors.clientEmail = "Enter a valid email address";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setSaving(true);
     const { requireUser } = await import("@/lib/auth");
     const user = await requireUser();
@@ -69,16 +79,34 @@ export default function NewLeadPage() {
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Client Name *</Label>
-          <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client name" />
+          <Input
+            value={clientName}
+            onChange={(e) => { setClientName(e.target.value); setErrors({ ...errors, clientName: "" }); }}
+            placeholder="Client name"
+            className={errors.clientName ? "border-red-500" : ""}
+          />
+          {errors.clientName && <p className="text-xs text-red-500">{errors.clientName}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Phone</Label>
-            <Input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} type="tel" />
+            <Input
+              value={clientPhone}
+              onChange={(e) => { setClientPhone(e.target.value); setErrors({ ...errors, clientPhone: "" }); }}
+              type="tel"
+              className={errors.clientPhone ? "border-red-500" : ""}
+            />
+            {errors.clientPhone && <p className="text-xs text-red-500">{errors.clientPhone}</p>}
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} type="email" />
+            <Input
+              value={clientEmail}
+              onChange={(e) => { setClientEmail(e.target.value); setErrors({ ...errors, clientEmail: "" }); }}
+              type="email"
+              className={errors.clientEmail ? "border-red-500" : ""}
+            />
+            {errors.clientEmail && <p className="text-xs text-red-500">{errors.clientEmail}</p>}
           </div>
         </div>
         <div className="space-y-2">
@@ -86,7 +114,7 @@ export default function NewLeadPage() {
           <div className="flex flex-wrap gap-2">
             {EVENT_TYPES.map((t) => (
               <button key={t.value} type="button" onClick={() => setEventType(t.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${eventType === t.value ? "border-navy-900 bg-navy-900 text-white" : "border-navy-200 text-navy-600"}`}>{t.label}</button>
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${eventType === t.value ? "border-navy-900 bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900 dark:border-navy-100" : "border-navy-200 text-navy-600 dark:border-navy-700 dark:text-navy-300"}`}>{t.label}</button>
             ))}
           </div>
         </div>
@@ -95,7 +123,7 @@ export default function NewLeadPage() {
           <div className="flex flex-wrap gap-2">
             {LEAD_SOURCES.map((s) => (
               <button key={s.value} type="button" onClick={() => setSource(s.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${source === s.value ? "border-navy-900 bg-navy-900 text-white" : "border-navy-200 text-navy-600"}`}>{s.label}</button>
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${source === s.value ? "border-navy-900 bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900 dark:border-navy-100" : "border-navy-200 text-navy-600 dark:border-navy-700 dark:text-navy-300"}`}>{s.label}</button>
             ))}
           </div>
         </div>

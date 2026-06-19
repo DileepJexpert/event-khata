@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/currency-input";
 import { useToast } from "@/components/ui/toast";
 import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, isValidPhone, isValidEmail } from "@/lib/utils";
 import Link from "next/link";
 import type { Event, InvoiceItem } from "@/lib/types";
 
@@ -20,6 +20,7 @@ export default function NewInvoicePage() {
   const { addToast } = useToast();
 
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState("");
 
@@ -78,7 +79,17 @@ export default function NewInvoicePage() {
   const total = subtotal + taxAmount;
 
   async function handleSave() {
-    if (!clientName.trim() || items.length === 0) return;
+    const newErrors: Record<string, string> = {};
+    if (!clientName.trim()) newErrors.clientName = "Client name is required";
+    if (clientPhone && !isValidPhone(clientPhone)) newErrors.clientPhone = "Enter a valid 10-digit phone number";
+    if (clientEmail && !isValidEmail(clientEmail)) newErrors.clientEmail = "Enter a valid email address";
+    if (items.every((item) => !item.description.trim() && !item.amount)) newErrors.items = "Add at least one item";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setSaving(true);
     const { requireUser } = await import("@/lib/auth");
     const user = await requireUser();
@@ -110,7 +121,7 @@ export default function NewInvoicePage() {
   return (
     <div className="px-4 pb-24 pt-4">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/invoices" className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100">
+        <Link href="/invoices" className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100 dark:bg-navy-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-xl font-bold">New Invoice</h1>
@@ -121,7 +132,7 @@ export default function NewInvoicePage() {
         <div className="space-y-2">
           <Label>Link to Event (optional)</Label>
           <select value={selectedEvent} onChange={(e) => setSelectedEvent(e.target.value)}
-            className="w-full rounded-lg border border-navy-200 p-3 text-sm">
+            className="w-full rounded-lg border border-navy-200 p-3 text-sm dark:border-navy-700 dark:bg-navy-800 dark:text-navy-100">
             <option value="">Select event...</option>
             {events.map((e) => <option key={e.id} value={e.id}>{e.client_name}</option>)}
           </select>
@@ -134,16 +145,33 @@ export default function NewInvoicePage() {
 
         <div className="space-y-2">
           <Label>Client Name *</Label>
-          <Input value={clientName} onChange={(e) => setClientName(e.target.value)} />
+          <Input
+            value={clientName}
+            onChange={(e) => { setClientName(e.target.value); setErrors({ ...errors, clientName: "" }); }}
+            className={errors.clientName ? "border-red-500" : ""}
+          />
+          {errors.clientName && <p className="text-xs text-red-500">{errors.clientName}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label>Phone</Label>
-            <Input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} type="tel" />
+            <Input
+              value={clientPhone}
+              onChange={(e) => { setClientPhone(e.target.value); setErrors({ ...errors, clientPhone: "" }); }}
+              type="tel"
+              className={errors.clientPhone ? "border-red-500" : ""}
+            />
+            {errors.clientPhone && <p className="text-xs text-red-500">{errors.clientPhone}</p>}
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} type="email" />
+            <Input
+              value={clientEmail}
+              onChange={(e) => { setClientEmail(e.target.value); setErrors({ ...errors, clientEmail: "" }); }}
+              type="email"
+              className={errors.clientEmail ? "border-red-500" : ""}
+            />
+            {errors.clientEmail && <p className="text-xs text-red-500">{errors.clientEmail}</p>}
           </div>
         </div>
 
@@ -155,7 +183,7 @@ export default function NewInvoicePage() {
           </div>
           <div className="space-y-3">
             {items.map((item, i) => (
-              <div key={i} className="flex gap-2 rounded-lg bg-navy-50 p-3">
+              <div key={i} className="flex gap-2 rounded-lg bg-navy-50 p-3 dark:bg-navy-800">
                 <div className="flex-1 space-y-2">
                   <Input value={item.description} onChange={(e) => updateItem(i, "description", e.target.value)}
                     placeholder="Description" className="bg-white" />
@@ -185,7 +213,7 @@ export default function NewInvoicePage() {
         </div>
 
         {/* Totals */}
-        <div className="rounded-xl bg-navy-50 p-4 space-y-2">
+        <div className="rounded-xl bg-navy-50 p-4 space-y-2 dark:bg-navy-800">
           <div className="flex justify-between text-sm">
             <span className="text-navy-600">Subtotal</span>
             <span className="font-semibold">{formatCurrency(subtotal)}</span>
@@ -194,9 +222,9 @@ export default function NewInvoicePage() {
             <span className="text-navy-600">Tax ({taxPercent}%)</span>
             <span className="font-semibold">{formatCurrency(taxAmount)}</span>
           </div>
-          <div className="flex justify-between border-t border-navy-200 pt-2 text-lg">
-            <span className="font-bold text-navy-900">Total</span>
-            <span className="font-bold text-navy-900">{formatCurrency(total)}</span>
+          <div className="flex justify-between border-t border-navy-200 pt-2 text-lg dark:border-navy-600">
+            <span className="font-bold text-navy-900 dark:text-navy-100">Total</span>
+            <span className="font-bold text-navy-900 dark:text-navy-100">{formatCurrency(total)}</span>
           </div>
         </div>
 

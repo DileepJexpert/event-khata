@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Loader2, Send, FileText, Check, X, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Send, FileText, Check, X, Pencil, Trash2, FileDown } from "lucide-react";
+import { generateProposalPDF, downloadPDF } from "@/lib/pdf-generator";
 import { formatCurrency, formatDate, PROPOSAL_STATUSES, VENDOR_CATEGORIES } from "@/lib/utils";
 import Link from "next/link";
 import type { Proposal } from "@/lib/types";
@@ -159,6 +160,12 @@ export default function ProposalDetailPage() {
 
       {/* Actions */}
       <div className="space-y-2">
+        <Button onClick={() => {
+          const doc = generateProposalPDF({ ...proposal, items: proposal.items || [] });
+          downloadPDF(doc, `${proposal.proposal_number}.pdf`);
+        }} variant="outline" className="w-full">
+          <FileDown className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
         <Button onClick={shareViaWhatsApp} className="w-full bg-emerald-500 hover:bg-emerald-600">
           <Send className="mr-2 h-4 w-4" /> Send via WhatsApp
         </Button>

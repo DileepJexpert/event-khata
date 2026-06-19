@@ -253,6 +253,11 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-navy-700/50 px-4 py-6 text-center text-xs text-navy-500">
         <p>EventKhata — Digital bahi khata for event planners</p>
+        <div className="mt-3 flex items-center justify-center gap-4">
+          <a href="/privacy" className="hover:text-navy-300">Privacy Policy</a>
+          <span>·</span>
+          <a href="/terms" className="hover:text-navy-300">Terms of Service</a>
+        </div>
       </footer>
     </div>
   );

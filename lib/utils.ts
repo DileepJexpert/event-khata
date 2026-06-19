@@ -5,10 +5,37 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
+// Supported currencies with their Intl locale + symbol.
+export const CURRENCIES = [
+  { code: "INR", label: "Indian Rupee (₹)", locale: "en-IN", symbol: "₹" },
+  { code: "USD", label: "US Dollar ($)", locale: "en-US", symbol: "$" },
+  { code: "AED", label: "UAE Dirham (د.إ)", locale: "en-AE", symbol: "AED" },
+  { code: "GBP", label: "British Pound (£)", locale: "en-GB", symbol: "£" },
+  { code: "EUR", label: "Euro (€)", locale: "en-IE", symbol: "€" },
+  { code: "CAD", label: "Canadian Dollar (C$)", locale: "en-CA", symbol: "C$" },
+  { code: "AUD", label: "Australian Dollar (A$)", locale: "en-AU", symbol: "A$" },
+  { code: "SGD", label: "Singapore Dollar (S$)", locale: "en-SG", symbol: "S$" },
+] as const;
+
+// Module-level active currency, set once from the agency's preference.
+let ACTIVE_CURRENCY = "INR";
+
+export function setActiveCurrency(code: string | null | undefined) {
+  if (code && CURRENCIES.some((c) => c.code === code)) {
+    ACTIVE_CURRENCY = code;
+  }
+}
+
+export function getActiveCurrency(): string {
+  return ACTIVE_CURRENCY;
+}
+
+export function formatCurrency(amount: number, currencyCode?: string): string {
+  const code = currencyCode || ACTIVE_CURRENCY;
+  const config = CURRENCIES.find((c) => c.code === code) || CURRENCIES[0];
+  return new Intl.NumberFormat(config.locale, {
     style: "currency",
-    currency: "INR",
+    currency: config.code,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
@@ -204,3 +231,34 @@ export const REMINDER_TYPES = [
   { value: "event", label: "Event", color: "bg-purple-100 text-purple-700" },
   { value: "general", label: "General", color: "bg-gray-100 text-gray-600" },
 ] as const;
+
+export const EXPENSE_CATEGORIES = [
+  { value: "travel", label: "Travel", icon: "Plane" },
+  { value: "food", label: "Food", icon: "UtensilsCrossed" },
+  { value: "accommodation", label: "Stay", icon: "BedDouble" },
+  { value: "tips", label: "Tips", icon: "HandCoins" },
+  { value: "supplies", label: "Supplies", icon: "Package" },
+  { value: "transport", label: "Transport", icon: "Truck" },
+  { value: "emergency", label: "Emergency", icon: "Siren" },
+  { value: "staff", label: "Staff", icon: "Users" },
+  { value: "misc", label: "Misc", icon: "Receipt" },
+  { value: "other", label: "Other", icon: "MoreHorizontal" },
+] as const;
+
+// Validation helpers
+export function isValidPhone(phone: string): boolean {
+  const clean = phone.replace(/\D/g, "");
+  return clean.length === 10 || clean.length === 12;
+}
+
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function isValidIFSC(ifsc: string): boolean {
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase());
+}
+
+export function isValidUPI(upi: string): boolean {
+  return /^[\w.\-]+@[\w]+$/.test(upi);
+}

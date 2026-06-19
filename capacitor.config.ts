@@ -3,11 +3,11 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.eventkhata.app",
   appName: "EventKhata",
-  webDir: "public",
+  webDir: "out",
   server: {
-    // Point to your deployed web app URL
     url: process.env.CAPACITOR_SERVER_URL || "https://eventkhata.vercel.app",
     androidScheme: "https",
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {

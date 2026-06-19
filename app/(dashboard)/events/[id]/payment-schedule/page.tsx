@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/currency-input";
 import { useToast } from "@/components/ui/toast";
-import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle, MessageCircle, Zap, IndianRupee } from "lucide-react";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
+import { getWhatsAppShareURL, getPaymentReminderMessage } from "@/lib/whatsapp";
+import { checkWhatsAppAPI, sendWhatsAppMessage } from "@/lib/whatsapp-api";
+import { isRazorpayEnabled, createPaymentLink } from "@/lib/razorpay";
 import Link from "next/link";
 import type { PaymentSchedule, Contract, Vendor } from "@/lib/types";
 
@@ -25,19 +28,45 @@ export default function PaymentSchedulePage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [whatsappAPI, setWhatsappAPI] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [razorpayEnabled, setRazorpayEnabled] = useState(false);
+  const [sendingPaymentLink, setSendingPaymentLink] = useState<string | null>(null);
+
   const [contractId, setContractId] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [label, setLabel] = useState("Payment");
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { checkWhatsAppAPI().then(setWhatsappAPI); }, []);
+  useEffect(() => { isRazorpayEnabled().then(setRazorpayEnabled); }, []);
 
   async function load() {
     const [schRes, conRes] = await Promise.all([
       supabase.from("payment_schedules").select("*, vendor:vendors(*)").eq("event_id", eventId).order("due_date"),
       supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
     ]);
-    if (schRes.data) setSchedules(schRes.data as any);
+    if (schRes.data) {
+      // Auto-update statuses based on current date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      for (const s of schRes.data as any[]) {
+        if (s.status === "paid") continue;
+        const due = new Date(s.due_date);
+        due.setHours(0, 0, 0, 0);
+        const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        let newStatus = s.status;
+        if (diff < 0) newStatus = "overdue";
+        else if (diff <= 3) newStatus = "due";
+        else newStatus = "upcoming";
+        if (newStatus !== s.status) {
+          await supabase.from("payment_schedules").update({ status: newStatus }).eq("id", s.id);
+          s.status = newStatus;
+        }
+      }
+      setSchedules(schRes.data as any);
+    }
     if (conRes.data) setContracts(conRes.data as any);
     setLoading(false);
   }
@@ -72,6 +101,64 @@ export default function PaymentSchedulePage() {
     load();
   }
 
+  async function remindVendor(sch: PaymentSchedule & { vendor?: Vendor }) {
+    if (!sch.vendor?.phone) {
+      addToast({ title: "No phone number", description: "Add a phone number for this vendor first.", variant: "destructive" });
+      return;
+    }
+    const isOverdue = sch.due_date && new Date(sch.due_date) < new Date();
+    const msg = getPaymentReminderMessage({
+      vendorName: sch.vendor.name,
+      amount: Number(sch.amount),
+      dueDate: formatDate(sch.due_date),
+      label: sch.label,
+      overdue: !!isOverdue,
+    });
+
+    if (whatsappAPI) {
+      setSendingReminder(sch.id);
+      const result = await sendWhatsAppMessage({ phone: sch.vendor.phone, message: msg });
+      setSendingReminder(null);
+      if (result.success) {
+        addToast({ title: "Reminder sent", description: `WhatsApp message sent to ${sch.vendor.name}`, variant: "success" });
+      } else {
+        addToast({ title: "Failed to send", description: result.error || "Could not send WhatsApp message", variant: "destructive" });
+      }
+    } else {
+      window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
+    }
+  }
+
+  async function sendPaymentLinkForSchedule(sch: PaymentSchedule & { vendor?: Vendor }) {
+    if (!sch.vendor) return;
+    setSendingPaymentLink(sch.id);
+    try {
+      const result = await createPaymentLink({
+        amount: sch.amount,
+        currency: "INR",
+        description: `${sch.label} - ${sch.vendor.name}`,
+        customer_name: sch.vendor.name,
+        customer_phone: sch.vendor.phone || undefined,
+        customer_email: sch.vendor.email || undefined,
+        reference_id: `ps_${sch.id}`,
+      });
+
+      addToast({ title: "Payment link created!", variant: "success" });
+
+      if (sch.vendor.phone) {
+        const msg = `Hi ${sch.vendor.name},\n\nHere is your payment link for ${sch.label}:\n\nAmount: ${formatCurrency(sch.amount)}\nDue: ${formatDate(sch.due_date)}\n\n${result.short_url}\n\nThank you!`;
+        window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
+      } else {
+        await navigator.clipboard.writeText(result.short_url);
+        addToast({ title: "Payment link copied to clipboard", variant: "success" });
+      }
+    } catch (err: any) {
+      addToast({ title: "Failed to create payment link", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingPaymentLink(null);
+    }
+  }
+
   const totalDue = schedules.filter((s) => s.status !== "paid").reduce((sum, s) => sum + s.amount, 0);
   const overdue = schedules.filter((s) => s.status === "overdue" || (s.status !== "paid" && s.due_date && new Date(s.due_date) < new Date()));
 
@@ -80,7 +167,7 @@ export default function PaymentSchedulePage() {
   return (
     <div className="px-4 pb-24 pt-4">
       <div className="mb-4 flex items-center gap-3">
-        <Link href={`/events/${eventId}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100">
+        <Link href={`/events/${eventId}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-100 dark:bg-navy-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1">
@@ -96,11 +183,11 @@ export default function PaymentSchedulePage() {
       </div>
 
       {showForm && (
-        <div className="mb-4 space-y-3 rounded-xl bg-white p-4 shadow-sm">
+        <div className="mb-4 space-y-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
           <div className="space-y-2">
             <Label>Vendor *</Label>
             <select value={contractId} onChange={(e) => setContractId(e.target.value)}
-              className="w-full rounded-lg border border-navy-200 p-3 text-sm">
+              className="w-full rounded-lg border border-navy-200 p-3 text-sm dark:border-navy-700 dark:bg-navy-800 dark:text-navy-100">
               <option value="">Select vendor...</option>
               {contracts.map((c) => (
                 <option key={c.id} value={c.id}>{c.vendor?.name} ({formatCurrency(c.agreed_amount)})</option>
@@ -140,7 +227,7 @@ export default function PaymentSchedulePage() {
           const isOverdue = sch.status !== "paid" && sch.due_date && new Date(sch.due_date) < new Date();
           const days = daysUntil(sch.due_date);
           return (
-            <div key={sch.id} className={`rounded-xl bg-white p-4 shadow-sm ${isOverdue ? "border-l-4 border-red-500" : sch.status === "paid" ? "border-l-4 border-emerald-500" : ""}`}>
+            <div key={sch.id} className={`rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900 ${isOverdue ? "border-l-4 border-red-500" : sch.status === "paid" ? "border-l-4 border-emerald-500" : ""}`}>
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full ${
@@ -151,7 +238,7 @@ export default function PaymentSchedulePage() {
                      <Clock className="h-4 w-4 text-amber-600" />}
                   </div>
                   <div>
-                    <p className="font-semibold text-navy-900">{sch.vendor?.name}</p>
+                    <p className="font-semibold text-navy-900 dark:text-navy-100">{sch.vendor?.name}</p>
                     <p className="text-xs text-navy-500">{sch.label}</p>
                     <p className={`mt-1 text-xs ${isOverdue ? "font-medium text-red-600" : "text-navy-500"}`}>
                       {formatDate(sch.due_date)}
@@ -160,7 +247,7 @@ export default function PaymentSchedulePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="text-lg font-bold text-navy-900">{formatCurrency(sch.amount)}</p>
+                  <p className="text-lg font-bold text-navy-900 dark:text-navy-100">{formatCurrency(sch.amount)}</p>
                 </div>
               </div>
               {sch.status !== "paid" && (
@@ -168,6 +255,25 @@ export default function PaymentSchedulePage() {
                   <Button size="sm" variant="success" onClick={() => markPaid(sch.id)} className="flex-1">
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Mark Paid
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => remindVendor(sch)} disabled={sendingReminder === sch.id} title={whatsappAPI ? "Auto-send WhatsApp reminder" : "Send WhatsApp reminder"}>
+                    {sendingReminder === sch.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <MessageCircle className="h-3 w-3" />
+                        {whatsappAPI && <Zap className="h-2 w-2 text-amber-500" />}
+                      </>
+                    )}
+                  </Button>
+                  {razorpayEnabled && (
+                    <Button size="sm" variant="outline" onClick={() => sendPaymentLinkForSchedule(sch)} disabled={sendingPaymentLink === sch.id} title="Send payment link">
+                      {sendingPaymentLink === sch.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <IndianRupee className="h-3 w-3 text-blue-600" />
+                      )}
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => handleDelete(sch.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>

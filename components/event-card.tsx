@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarDays, MapPin } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
 import type { Event } from "@/lib/types";
 
 interface EventCardProps {
@@ -13,6 +13,7 @@ interface EventCardProps {
 export function EventCard({ event, totalSpent = 0 }: EventCardProps) {
   const budget = event.total_budget || 0;
   const percentage = budget > 0 ? Math.min((totalSpent / budget) * 100, 100) : 0;
+  const dLeft = event.event_date ? daysUntil(event.event_date) : null;
 
   const statusVariant = {
     active: "success" as const,
@@ -26,10 +27,19 @@ export function EventCard({ event, totalSpent = 0 }: EventCardProps) {
         <CardContent className="p-4">
           <div className="mb-2 flex items-start justify-between">
             <div>
-              <h3 className="font-semibold text-navy-900">{event.client_name}</h3>
+              <h3 className="font-semibold text-navy-900 dark:text-navy-100">{event.client_name}</h3>
               <p className="text-sm text-navy-500 capitalize">{event.event_type}</p>
             </div>
-            <Badge variant={statusVariant[event.status]}>{event.status}</Badge>
+            <div className="flex items-center gap-2">
+              {dLeft !== null && dLeft >= 0 && dLeft <= 14 && event.status === "active" && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  dLeft === 0 ? "bg-red-100 text-red-700" : dLeft <= 3 ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                }`}>
+                  {dLeft === 0 ? "Today!" : `${dLeft}d left`}
+                </span>
+              )}
+              <Badge variant={statusVariant[event.status]}>{event.status}</Badge>
+            </div>
           </div>
 
           <div className="mb-3 flex flex-wrap gap-3 text-xs text-navy-500">
@@ -55,7 +65,7 @@ export function EventCard({ event, totalSpent = 0 }: EventCardProps) {
                 </span>
                 <span className="font-medium">{formatCurrency(budget)}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-navy-100">
+              <div className="h-2 overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
                 <div
                   className={`h-full rounded-full transition-all ${
                     percentage > 90 ? "bg-red-500" : percentage > 70 ? "bg-amber-500" : "bg-emerald-500"

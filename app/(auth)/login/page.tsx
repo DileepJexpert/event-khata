@@ -1,20 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail, LogIn, UserPlus } from "lucide-react";
+import { Loader2, Mail, LogIn, UserPlus, Ban } from "lucide-react";
 
 export default function LoginPage() {
   const supabase = createClient();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [disabled, setDisabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("disabled") === "1") {
+      setDisabled(true);
+    }
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -45,9 +52,18 @@ export default function LoginPage() {
     if (data.user) {
       const { data: agency } = await supabase
         .from("agencies")
-        .select("id")
+        .select("id, is_active")
         .eq("id", data.user.id)
-        .single();
+        .maybeSingle();
+
+      // Account disabled by admin → block entry.
+      if (agency && agency.is_active === false) {
+        await supabase.auth.signOut();
+        setDisabled(true);
+        setError("");
+        setLoading(false);
+        return;
+      }
 
       window.location.href = agency ? "/events" : "/onboard";
     }
@@ -95,6 +111,29 @@ export default function LoginPage() {
     setLoading(false);
   }
 
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      setError("Enter a valid email address");
+      return;
+    }
+    setLoading(true);
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setSuccess("Password reset email sent! Check your inbox.");
+    }
+    setLoading(false);
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-navy-900 px-4">
       <div className="mb-8 text-center">
@@ -103,22 +142,35 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg">
-        <form onSubmit={mode === "login" ? handleLogin : handleSignup} className="space-y-4">
+        {disabled && (
+          <div className="mb-4 flex items-start gap-3 rounded-lg bg-red-50 p-3">
+            <Ban className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+            <div>
+              <p className="text-sm font-semibold text-red-700">Account disabled</p>
+              <p className="text-xs text-red-600">Your access has been suspended. Please contact support to reactivate your account.</p>
+            </div>
+          </div>
+        )}
+        <form onSubmit={mode === "login" ? handleLogin : mode === "signup" ? handleSignup : handleReset} className="space-y-4">
           <div className="text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-navy-100">
               {mode === "login" ? (
                 <LogIn className="h-6 w-6 text-navy-600" />
-              ) : (
+              ) : mode === "signup" ? (
                 <UserPlus className="h-6 w-6 text-navy-600" />
+              ) : (
+                <Mail className="h-6 w-6 text-navy-600" />
               )}
             </div>
             <h2 className="text-lg font-bold text-navy-900">
-              {mode === "login" ? "Welcome Back" : "Create Account"}
+              {mode === "login" ? "Welcome Back" : mode === "signup" ? "Create Account" : "Reset Password"}
             </h2>
             <p className="text-sm text-navy-500">
               {mode === "login"
                 ? "Login to manage your events"
-                : "Sign up to start tracking vendor payments"}
+                : mode === "signup"
+                ? "Sign up to start tracking vendor payments"
+                : "Enter your email to receive a reset link"}
             </p>
           </div>
 
@@ -137,34 +189,46 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Password</Label>
-            <Input
-              type="password"
-              placeholder="Min 6 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          {mode !== "reset" && (
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                placeholder="Min 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
           {success && <p className="text-sm text-emerald-600">{success}</p>}
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {mode === "login" ? "Login" : "Create Account"}
+            {mode === "login" ? "Login" : mode === "signup" ? "Create Account" : "Send Reset Link"}
           </Button>
 
-          <div className="text-center">
-            {mode === "login" ? (
-              <button
-                type="button"
-                onClick={() => { setMode("signup"); setError(""); setSuccess(""); }}
-                className="text-sm text-navy-500 hover:text-navy-700"
-              >
-                Don&apos;t have an account? <span className="font-semibold text-navy-900">Sign up</span>
-              </button>
-            ) : (
+          <div className="space-y-2 text-center">
+            {mode === "login" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setMode("reset"); setError(""); setSuccess(""); }}
+                  className="block w-full text-xs text-navy-400 hover:text-navy-600"
+                >
+                  Forgot password?
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode("signup"); setError(""); setSuccess(""); }}
+                  className="text-sm text-navy-500 hover:text-navy-700"
+                >
+                  Don&apos;t have an account? <span className="font-semibold text-navy-900">Sign up</span>
+                </button>
+              </>
+            )}
+            {mode === "signup" && (
               <button
                 type="button"
                 onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
@@ -173,12 +237,24 @@ export default function LoginPage() {
                 Already have an account? <span className="font-semibold text-navy-900">Login</span>
               </button>
             )}
+            {mode === "reset" && (
+              <button
+                type="button"
+                onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
+                className="text-sm text-navy-500 hover:text-navy-700"
+              >
+                Back to <span className="font-semibold text-navy-900">Login</span>
+              </button>
+            )}
           </div>
         </form>
       </div>
 
       <p className="mt-6 text-xs text-navy-400">
-        By continuing, you agree to our Terms of Service
+        By continuing, you agree to our{" "}
+        <a href="/terms" className="underline hover:text-navy-300">Terms of Service</a>
+        {" & "}
+        <a href="/privacy" className="underline hover:text-navy-300">Privacy Policy</a>
       </p>
     </div>
   );
