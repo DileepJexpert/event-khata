@@ -14,6 +14,7 @@ import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
   Send, Copy, Save, AlertTriangle, Sparkles, Loader2, X, Lightbulb, Brain, ChevronDown, ChevronUp,
+  Camera, Armchair, UserCheck,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
@@ -287,6 +288,23 @@ export default function EventDetailPage() {
         )}
       </div>
 
+      {/* Countdown */}
+      {event.event_date && event.status === "active" && (() => {
+        const d = daysUntil(event.event_date);
+        if (d < 0) return null;
+        return (
+          <div className="mb-4 flex items-center gap-4 rounded-xl bg-gradient-to-r from-navy-800 to-navy-700 p-4 text-white dark:from-navy-700 dark:to-navy-600">
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-2xl font-extrabold">
+              {d === 0 ? "!" : d}
+            </div>
+            <div>
+              <p className="text-lg font-bold">{d === 0 ? "Event is TODAY!" : d === 1 ? "Tomorrow!" : `${d} days to go`}</p>
+              <p className="text-sm text-navy-300">{formatDate(event.event_date)} · {event.venue || event.event_type}</p>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Budget Summary */}
       {event.total_budget && (
         <Card className="mb-4">
@@ -414,6 +432,18 @@ export default function EventDetailPage() {
         <Link href={`/events/${eventId}/invite`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Send className="h-5 w-5 text-rose-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">E-Invite</span>
+        </Link>
+        <Link href={`/events/${eventId}/gallery`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+          <Camera className="h-5 w-5 text-indigo-600" />
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Gallery</span>
+        </Link>
+        <Link href={`/events/${eventId}/seating`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+          <Armchair className="h-5 w-5 text-orange-600" />
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Seating</span>
+        </Link>
+        <Link href={`/events/${eventId}/checkin`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+          <UserCheck className="h-5 w-5 text-green-600" />
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Check-in</span>
         </Link>
       </div>
 

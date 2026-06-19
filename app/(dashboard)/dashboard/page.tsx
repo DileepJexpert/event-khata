@@ -15,11 +15,23 @@ import {
   Plus,
   ListChecks,
   FileText,
+  BarChart3,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
 import type { Event, LedgerEntry, PaymentSchedule, Lead } from "@/lib/types";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 type ActivityItem = {
   id: string;
@@ -29,6 +41,35 @@ type ActivityItem = {
   time: string;
   icon: "payment" | "event" | "vendor" | "task" | "lead";
 };
+
+type MonthlyPayment = {
+  month: string;
+  total: number;
+};
+
+type CategorySpending = {
+  category: string;
+  total: number;
+};
+
+type CountdownEvent = {
+  id: string;
+  client_name: string;
+  venue: string | null;
+  event_date: string;
+  days_left: number;
+};
+
+const PIE_COLORS = [
+  "#10b981", // emerald-500
+  "#3b82f6", // blue-500
+  "#a855f7", // purple-500
+  "#f97316", // orange-500
+  "#06b6d4", // cyan-500
+  "#ec4899", // pink-500
+  "#eab308", // yellow-500
+  "#ef4444", // red-500
+];
 
 type DashboardData = {
   activeEvents: number;
@@ -60,6 +101,9 @@ export default function DashboardPage() {
     pendingTasks: 0,
     recentActivity: [],
   });
+  const [countdownEvent, setCountdownEvent] = useState<CountdownEvent | null>(null);
+  const [monthlyPayments, setMonthlyPayments] = useState<MonthlyPayment[]>([]);
+  const [categorySpending, setCategorySpending] = useState<CategorySpending[]>([]);
 
   useEffect(() => {
     loadDashboard();
@@ -137,6 +181,82 @@ export default function DashboardPage() {
       pendingTasks: tasksRes.count || 0,
       recentActivity: activity,
     });
+
+    // --- Countdown: find nearest upcoming event ---
+    const todayStr = new Date().toISOString().split("T")[0];
+    const { data: nearestEvents } = await supabase
+      .from("events")
+      .select("id, client_name, venue, event_date")
+      .gte("event_date", todayStr)
+      .order("event_date", { ascending: true })
+      .limit(1);
+
+    if (nearestEvents && nearestEvents.length > 0) {
+      const evt = nearestEvents[0];
+      setCountdownEvent({
+        id: evt.id,
+        client_name: evt.client_name,
+        venue: evt.venue,
+        event_date: evt.event_date,
+        days_left: daysUntil(evt.event_date),
+      });
+    }
+
+    // --- Monthly Payment Trend (last 6 months) ---
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString();
+
+    const { data: monthlyLedger } = await supabase
+      .from("ledger")
+      .select("amount, txn_type, recorded_at")
+      .gte("recorded_at", sixMonthsAgoStr)
+      .order("recorded_at", { ascending: true });
+
+    if (monthlyLedger && monthlyLedger.length > 0) {
+      const monthMap: Record<string, number> = {};
+      // Pre-fill last 6 months
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        monthMap[key] = 0;
+      }
+      monthlyLedger.forEach((entry) => {
+        const d = new Date(entry.recorded_at);
+        const key = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        if (key in monthMap) {
+          const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
+          monthMap[key] += amt;
+        }
+      });
+      setMonthlyPayments(
+        Object.entries(monthMap).map(([month, total]) => ({ month, total: Math.max(0, total) }))
+      );
+    }
+
+    // --- Category Spending (pie chart) ---
+    const { data: categoryLedger } = await supabase
+      .from("ledger")
+      .select("amount, txn_type, vendor:vendors(category)");
+
+    if (categoryLedger && categoryLedger.length > 0) {
+      const catMap: Record<string, number> = {};
+      categoryLedger.forEach((entry: any) => {
+        const cat = entry.vendor?.category || "other";
+        const label = cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, " ");
+        const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
+        catMap[label] = (catMap[label] || 0) + amt;
+      });
+      setCategorySpending(
+        Object.entries(catMap)
+          .filter(([, total]) => total > 0)
+          .sort((a, b) => b[1] - a[1])
+          .map(([category, total]) => ({ category, total }))
+      );
+    }
+
     setLoading(false);
   }
 
@@ -173,6 +293,45 @@ export default function DashboardPage() {
       <div className="mb-6">
         <GlobalSearch />
       </div>
+
+      {/* Event Countdown Widget */}
+      {countdownEvent && (
+        <Link
+          href={`/events/${countdownEvent.id}`}
+          className="mb-6 block overflow-hidden rounded-xl bg-gradient-to-r from-navy-800 to-navy-700 p-5 shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-navy-300">
+                Next Event
+              </p>
+              <h3 className="mt-1 text-lg font-bold text-white">
+                {countdownEvent.client_name}
+              </h3>
+              {countdownEvent.venue && (
+                <p className="mt-0.5 text-sm text-navy-300">{countdownEvent.venue}</p>
+              )}
+              <p className="mt-1 text-sm text-navy-400">
+                {formatDate(countdownEvent.event_date)}
+              </p>
+            </div>
+            <div className="flex flex-col items-center justify-center rounded-xl bg-white/10 px-5 py-3 backdrop-blur-sm">
+              {countdownEvent.days_left === 0 ? (
+                <span className="text-2xl font-extrabold text-emerald-400">TODAY!</span>
+              ) : (
+                <>
+                  <span className="text-4xl font-extrabold leading-none text-emerald-400">
+                    {countdownEvent.days_left}
+                  </span>
+                  <span className="mt-1 text-xs font-semibold text-navy-300">
+                    {countdownEvent.days_left === 1 ? "day to go" : "days to go"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Stat Cards */}
       <div className="mb-6 grid grid-cols-2 gap-3">
@@ -363,6 +522,106 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Analytics Charts */}
+      {(monthlyPayments.length > 0 || categorySpending.length > 0) && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-navy-600" />
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Analytics</h2>
+          </div>
+
+          {/* Monthly Payment Trend */}
+          {monthlyPayments.length > 0 && (
+            <div className="mb-4 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+              <h3 className="mb-3 text-sm font-semibold text-navy-700 dark:text-navy-300">
+                Monthly Payment Trend
+              </h3>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyPayments} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "#6b7280" }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) =>
+                        v >= 100000 ? `${(v / 100000).toFixed(1)}L` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)
+                      }
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [formatCurrency(value), "Total"]}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Bar dataKey="total" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Category Spending Pie */}
+          {categorySpending.length > 0 && (
+            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+              <h3 className="mb-3 text-sm font-semibold text-navy-700 dark:text-navy-300">
+                Spending by Category
+              </h3>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categorySpending}
+                      dataKey="total"
+                      nameKey="category"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {categorySpending.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => [formatCurrency(value), "Spent"]}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        fontSize: "12px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Legend */}
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+                {categorySpending.map((item, index) => (
+                  <div key={item.category} className="flex items-center gap-1.5">
+                    <div
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                    />
+                    <span className="text-xs text-navy-600 dark:text-navy-400">{item.category}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
