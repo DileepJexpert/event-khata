@@ -72,7 +72,6 @@ export default function QuickPayPage() {
       .select("*, vendor:vendors(*)")
       .eq("event_id", eventId);
     if (error) console.error("[QuickPay] Failed to load vendors:", error.message, error);
-    console.log("[QuickPay] Loaded contracts for event:", eventId, "count:", data?.length, "data:", data);
     if (data) setVendors(data as any);
     setVendorsLoading(false);
   }

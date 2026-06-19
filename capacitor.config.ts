@@ -3,9 +3,9 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.eventkhata.app",
   appName: "EventKhata",
-  webDir: "out",
+  webDir: "public",
   server: {
-    url: process.env.CAPACITOR_SERVER_URL || "https://eventkhata.vercel.app",
+    url: process.env.CAPACITOR_SERVER_URL || "https://event-khata.vercel.app",
     androidScheme: "https",
     cleartext: false,
   },

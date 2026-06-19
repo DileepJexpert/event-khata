@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 export async function POST(req: NextRequest) {
+  const { user } = await requireAuth();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -66,7 +72,6 @@ export async function POST(req: NextRequest) {
     const text =
       data.content?.[0]?.type === "text" ? data.content[0].text : "";
 
-    // Strip markdown fences if present
     const cleaned = text
       .replace(/```json\s*/gi, "")
       .replace(/```\s*/g, "")
@@ -74,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = JSON.parse(cleaned);
     return NextResponse.json(parsed);
-  } catch (error: any) {
+  } catch (error) {
     console.error("[AI budget-suggestion] Error:", error);
     return NextResponse.json(
       { error: "Failed to process AI suggestion." },

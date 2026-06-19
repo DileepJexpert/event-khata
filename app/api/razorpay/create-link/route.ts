@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 export async function POST(req: NextRequest) {
+  const { user } = await requireAuth();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -31,7 +37,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Razorpay expects amount in paise (smallest currency unit)
     const amountInPaise = Math.round(amount * 100);
 
     const payload: Record<string, unknown> = {

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/supabase/api-auth";
 
 function formatPhone(phone: string): string {
-  // Strip all non-digit characters
   let cleaned = phone.replace(/\D/g, "");
-  // Remove leading + if present (already stripped by \D)
-  // Add 91 prefix if not present (Indian numbers)
   if (!cleaned.startsWith("91")) {
     cleaned = `91${cleaned}`;
   }
@@ -12,6 +10,11 @@ function formatPhone(phone: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const { user } = await requireAuth();
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_ID;
 
@@ -39,7 +42,6 @@ export async function POST(req: NextRequest) {
     let payload: Record<string, unknown>;
 
     if (template_name) {
-      // Template message
       payload = {
         messaging_product: "whatsapp",
         to: formattedPhone,
@@ -61,7 +63,6 @@ export async function POST(req: NextRequest) {
         },
       };
     } else {
-      // Text message
       if (!message) {
         return NextResponse.json(
           { success: false, error: "Message is required for text messages" },
