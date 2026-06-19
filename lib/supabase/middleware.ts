@@ -31,7 +31,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't need auth
-  const publicPaths = ["/login", "/onboard", "/client/"];
+  const publicPaths = ["/login", "/onboard", "/client/", "/privacy", "/terms", "/invite/"];
   const isPublic = publicPaths.some((p) => pathname.startsWith(p));
 
   // Landing page: logged-in users go to dashboard, others see the landing page

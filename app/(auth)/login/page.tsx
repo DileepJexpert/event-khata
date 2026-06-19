@@ -251,7 +251,10 @@ export default function LoginPage() {
       </div>
 
       <p className="mt-6 text-xs text-navy-400">
-        By continuing, you agree to our Terms of Service
+        By continuing, you agree to our{" "}
+        <a href="/terms" className="underline hover:text-navy-300">Terms of Service</a>
+        {" & "}
+        <a href="/privacy" className="underline hover:text-navy-300">Privacy Policy</a>
       </p>
     </div>
   );
