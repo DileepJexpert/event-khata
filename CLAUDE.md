@@ -53,8 +53,26 @@ Never leave changes only on the feature branch — they must reach `main`.
 - `npm ci` — must succeed (lockfile must stay in sync)
 - ESLint config: `.eslintrc.json` (extends `next/core-web-vitals`)
 
+## Android Release Signing
+
+The release build reads keystore properties from `android/gradle.properties` (not committed):
+
+```properties
+EVENTKHATA_STORE_FILE=../eventkhata-release.keystore
+EVENTKHATA_STORE_PASSWORD=<password>
+EVENTKHATA_KEY_ALIAS=eventkhata
+EVENTKHATA_KEY_PASSWORD=<password>
+```
+
+After creating the keystore, update `public/.well-known/assetlinks.json` with the real SHA-256:
+
+```bash
+keytool -list -v -keystore eventkhata-release.keystore | grep SHA256
+```
+
 ## Don'ts
 
 - Don't leave `console.log` with data payloads in production code (`console.error` for failures is fine)
 - Don't use `webDir: "out"` in Capacitor — this is a hosted-wrapper app, not a static export
 - Don't skip webhook signature verification when secrets are missing — fail closed
+- Don't allow API routes to act on resources without verifying ownership (RLS handles DB queries, but reference_ids and phone numbers passed to external APIs must be checked)

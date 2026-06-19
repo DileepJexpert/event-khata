@@ -9,8 +9,15 @@ function formatPhone(phone: string): string {
   return cleaned;
 }
 
+const ALLOWED_TEMPLATES = [
+  "event_invitation",
+  "payment_reminder",
+  "booking_confirmation",
+  "event_update",
+];
+
 export async function POST(req: NextRequest) {
-  const { user } = await requireAuth();
+  const { user, supabase } = await requireAuth();
   if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
@@ -33,6 +40,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Phone number is required" },
         { status: 400 }
+      );
+    }
+
+    if (template_name && !ALLOWED_TEMPLATES.includes(template_name)) {
+      return NextResponse.json(
+        { success: false, error: "Template not allowed" },
+        { status: 400 }
+      );
+    }
+
+    if (message && message.length > 4096) {
+      return NextResponse.json(
+        { success: false, error: "Message too long" },
+        { status: 400 }
+      );
+    }
+
+    const cleanedPhone = phone.replace(/\D/g, "");
+    const { data: vendorMatch } = await supabase
+      .from("vendors")
+      .select("id")
+      .eq("phone", cleanedPhone)
+      .limit(1);
+    const { data: guestMatch } = await supabase
+      .from("guests")
+      .select("id")
+      .eq("phone", cleanedPhone)
+      .limit(1);
+
+    if ((!vendorMatch || vendorMatch.length === 0) && (!guestMatch || guestMatch.length === 0)) {
+      return NextResponse.json(
+        { success: false, error: "Phone number does not belong to any of your contacts" },
+        { status: 403 }
       );
     }
 

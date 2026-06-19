@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
 export async function POST(req: NextRequest) {
-  const { user } = await requireAuth();
+  const { user, supabase } = await requireAuth();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -35,6 +35,28 @@ export async function POST(req: NextRequest) {
         { error: "amount, description, and customer_name are required" },
         { status: 400 }
       );
+    }
+
+    if (reference_id) {
+      if (reference_id.startsWith("inv_")) {
+        const { data } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("id", reference_id.slice(4))
+          .single();
+        if (!data) {
+          return NextResponse.json({ error: "Invoice not found" }, { status: 403 });
+        }
+      } else if (reference_id.startsWith("ps_")) {
+        const { data } = await supabase
+          .from("payment_schedules")
+          .select("id")
+          .eq("id", reference_id.slice(3))
+          .single();
+        if (!data) {
+          return NextResponse.json({ error: "Payment schedule not found" }, { status: 403 });
+        }
+      }
     }
 
     const amountInPaise = Math.round(amount * 100);
