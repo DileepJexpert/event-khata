@@ -31,7 +31,7 @@ export default function NewEventPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
-  const [showTemplates, setShowTemplates] = useState(true);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<TemplateShape[]>(SYSTEM_TEMPLATES as unknown as TemplateShape[]);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -185,8 +185,8 @@ export default function NewEventPage() {
       <div className="mb-4">
         <button onClick={() => setShowTemplates(!showTemplates)}
           className="mb-2 flex w-full items-center justify-between rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-purple-600" />
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-left">
+            <Sparkles className="h-4 w-4 flex-shrink-0 text-purple-600" />
             <span className="text-sm font-semibold text-navy-900">Start from Template</span>
             <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
               Auto-creates tasks & functions
@@ -195,7 +195,7 @@ export default function NewEventPage() {
           {showTemplates ? <ChevronUp className="h-4 w-4 text-navy-400" /> : <ChevronDown className="h-4 w-4 text-navy-400" />}
         </button>
         {showTemplates && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {templates.map((template, i) => (
               <button key={i} type="button" onClick={() => selectTemplate(i)}
                 className={`rounded-lg border-2 p-3 text-left transition-all ${

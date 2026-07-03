@@ -24,18 +24,20 @@ const navItems = [
 ];
 
 const moreItems = [
-  { href: "/leads", label: "Leads", icon: UserPlus },
-  { href: "/proposals", label: "Proposals", icon: FileText },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/invoices", label: "Invoices", icon: FileText },
-  { href: "/expenses", label: "Expenses", icon: Receipt },
-  { href: "/tasks", label: "Tasks", icon: ClipboardList },
-  { href: "/reminders", label: "Reminders", icon: Bell },
-  { href: "/events/calendar", label: "Calendar", icon: CalendarCheck },
-  { href: "/team", label: "Team", icon: Users },
-  { href: "/notifications", label: "Alerts", icon: Bell },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/leads", label: "Leads", icon: UserPlus, group: "Business" },
+  { href: "/proposals", label: "Proposals", icon: FileText, group: "Business" },
+  { href: "/invoices", label: "Invoices", icon: FileText, group: "Business" },
+  { href: "/reports", label: "Reports", icon: BarChart3, group: "Business" },
+  { href: "/expenses", label: "Expenses", icon: Receipt, group: "Money" },
+  { href: "/tasks", label: "Tasks", icon: ClipboardList, group: "Planning" },
+  { href: "/reminders", label: "Reminders", icon: Bell, group: "Planning" },
+  { href: "/events/calendar", label: "Calendar", icon: CalendarCheck, group: "Planning" },
+  { href: "/team", label: "Team", icon: Users, group: "Account" },
+  { href: "/notifications", label: "Alerts", icon: Bell, group: "Account" },
+  { href: "/settings", label: "Settings", icon: Settings, group: "Account" },
 ];
+
+const moreGroups = ["Business", "Money", "Planning", "Account"];
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -110,22 +112,29 @@ export function BottomNav() {
           </button>
 
           {showMore && (
-            <div className="absolute bottom-full right-0 mb-2 w-48 rounded-xl border border-navy-100 bg-white py-2 shadow-lg dark:border-navy-700 dark:bg-navy-800">
-              {moreItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setShowMore(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 text-sm transition-colors",
-                    pathname.startsWith(item.href)
-                      ? "bg-navy-50 font-semibold text-navy-900 dark:bg-navy-700 dark:text-navy-100"
-                      : "text-navy-600 hover:bg-navy-50 dark:text-navy-300 dark:hover:bg-navy-700"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
+            <div className="absolute bottom-full right-0 mb-2 max-h-[70vh] w-60 overflow-y-auto rounded-xl border border-navy-100 bg-white py-2 shadow-lg dark:border-navy-700 dark:bg-navy-800">
+              {moreGroups.map((group) => (
+                <div key={group} className="py-1">
+                  <p className="px-4 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-navy-400">
+                    {group}
+                  </p>
+                  {moreItems.filter((item) => item.group === group).map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setShowMore(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+                        pathname.startsWith(item.href)
+                          ? "bg-navy-50 font-semibold text-navy-900 dark:bg-navy-700 dark:text-navy-100"
+                          : "text-navy-600 hover:bg-navy-50 dark:text-navy-300 dark:hover:bg-navy-700"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
               ))}
             </div>
           )}

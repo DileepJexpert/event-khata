@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Mail, LogIn, UserPlus, Ban } from "lucide-react";
 
+const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL || "";
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD || "";
+
 export default function LoginPage() {
   const supabase = createClient();
   const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
@@ -65,7 +68,7 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = agency ? "/events" : "/onboard";
+      window.location.href = agency ? "/dashboard" : "/onboard";
     }
   }
 
@@ -208,6 +211,23 @@ export default function LoginPage() {
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             {mode === "login" ? "Login" : mode === "signup" ? "Create Account" : "Send Reset Link"}
           </Button>
+
+          {mode === "login" && DEMO_EMAIL && DEMO_PASSWORD && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setEmail(DEMO_EMAIL);
+                setPassword(DEMO_PASSWORD);
+                setError("");
+                setSuccess("Demo credentials added. Tap Login to continue.");
+              }}
+              disabled={loading}
+            >
+              Use Demo Account
+            </Button>
+          )}
 
           <div className="space-y-2 text-center">
             {mode === "login" && (

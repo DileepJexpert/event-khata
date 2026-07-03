@@ -281,6 +281,13 @@ export default function DashboardPage() {
     );
   }
 
+  const isFreshWorkspace =
+    data.activeEvents === 0 &&
+    data.totalVendors === 0 &&
+    data.recentPayments.length === 0 &&
+    data.upcomingPayments.length === 0 &&
+    data.pendingTasks === 0;
+
   return (
     <div className="px-4 pb-24 pt-4">
       {/* Header */}
@@ -293,6 +300,26 @@ export default function DashboardPage() {
       <div className="mb-6">
         <GlobalSearch />
       </div>
+
+      {isFreshWorkspace && (
+        <div className="mb-6 rounded-xl border border-navy-100 bg-white p-5 shadow-sm dark:border-navy-800 dark:bg-navy-900">
+          <div className="mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Ready to start</p>
+            <h2 className="mt-1 text-xl font-bold text-navy-900 dark:text-navy-100">Create your first event</h2>
+            <p className="mt-1 text-sm text-navy-500">Set up the client, budget, date, and venue, then add vendors from the event page.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Link href="/events/new" className="flex items-center justify-center gap-2 rounded-lg bg-navy-900 px-4 py-3 text-sm font-semibold text-white dark:bg-navy-100 dark:text-navy-900">
+              <CalendarDays className="h-4 w-4" />
+              New Event
+            </Link>
+            <Link href="/vendors/new" className="flex items-center justify-center gap-2 rounded-lg border border-navy-200 bg-white px-4 py-3 text-sm font-semibold text-navy-700 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-100">
+              <Users className="h-4 w-4" />
+              Add Vendor
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Event Countdown Widget */}
       {countdownEvent && (
