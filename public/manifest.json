@@ -31,21 +31,5 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshots/dashboard.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Event dashboard with budget overview"
-    },
-    {
-      "src": "/screenshots/payments.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Track vendor payments in real-time"
-    }
-  ],
   "prefer_related_applications": false
 }
