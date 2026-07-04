@@ -41,10 +41,23 @@ export default function LoginPage() {
     }
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: trimmed,
-      password,
-    });
+    let data;
+    let authError;
+    try {
+      const result = await supabase.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
+      data = result.data;
+      authError = result.error;
+    } catch (err) {
+      console.error("[Login] Supabase sign-in request failed:", err);
+      setError(
+        "Cannot reach the login server. Refresh the page and check that Supabase is running locally."
+      );
+      setLoading(false);
+      return;
+    }
 
     if (authError) {
       setError(authError.message);

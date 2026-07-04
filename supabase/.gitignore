@@ -1,0 +1,8 @@
+# Supabase local state
+.branches
+.temp
+
+# Local env material
+.env.keys
+.env.local
+.env.*.local
