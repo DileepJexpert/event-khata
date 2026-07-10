@@ -9,8 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/currency-input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Loader2, Plus, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, AlertTriangle } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 import type { Vendor, SubEvent } from "@/lib/types";
+
+type BookingConflict = {
+  clientName: string;
+  eventDate: string | null;
+};
 
 export default function AddVendorToEventPage() {
   const params = useParams();
@@ -28,20 +34,51 @@ export default function AddVendorToEventPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [eventDate, setEventDate] = useState<string | null>(null);
+  const [conflicts, setConflicts] = useState<BookingConflict[]>([]);
+  const [checkingConflict, setCheckingConflict] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (selectedVendor && eventDate) checkConflicts(selectedVendor);
+    else setConflicts([]);
+  }, [selectedVendor, eventDate]);
+
   async function loadData() {
-    const [vRes, seRes] = await Promise.all([
+    const [vRes, seRes, evRes] = await Promise.all([
       supabase.from("vendors").select("*").order("name"),
       supabase.from("sub_events").select("*").eq("event_id", eventId).order("sort_order"),
+      supabase.from("events").select("event_date").eq("id", eventId).single(),
     ]);
     if (vRes.error) console.error("[AddVendor] Failed to load vendors:", vRes.error.message);
     if (vRes.data) setVendors(vRes.data);
     if (seRes.data) setSubEvents(seRes.data);
+    if (evRes.data) setEventDate(evRes.data.event_date);
     setLoading(false);
+  }
+
+  // Warn if this vendor is already booked on another event sharing this date.
+  async function checkConflicts(vendorId: string) {
+    if (!eventDate) return;
+    setCheckingConflict(true);
+    const { data } = await supabase
+      .from("contracts")
+      .select("event_id, event:events!inner(id, client_name, event_date, status)")
+      .eq("vendor_id", vendorId)
+      .neq("event_id", eventId);
+
+    const clashes: BookingConflict[] = [];
+    for (const row of (data as any[]) || []) {
+      const ev = row.event;
+      if (ev && ev.event_date === eventDate && ev.status !== "cancelled") {
+        clashes.push({ clientName: ev.client_name, eventDate: ev.event_date });
+      }
+    }
+    setConflicts(clashes);
+    setCheckingConflict(false);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,6 +168,21 @@ export default function AddVendorToEventPage() {
             </div>
           )}
         </div>
+
+        {conflicts.length > 0 && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold">Possible double-booking</p>
+              <p className="mt-0.5 text-xs">
+                This vendor is already booked on{" "}
+                {eventDate ? formatDate(eventDate) : "this date"} for{" "}
+                {conflicts.map((c) => c.clientName).join(", ")}. You can still
+                add them, but confirm they can cover both.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label>Agreed Amount *</Label>
