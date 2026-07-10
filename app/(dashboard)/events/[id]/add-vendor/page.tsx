@@ -23,6 +23,7 @@ export default function AddVendorToEventPage() {
   const [selectedVendor, setSelectedVendor] = useState("");
   const [selectedFunction, setSelectedFunction] = useState("");
   const [agreedAmount, setAgreedAmount] = useState("");
+  const [commissionPercent, setCommissionPercent] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,12 +49,21 @@ export default function AddVendorToEventPage() {
     if (!selectedVendor || !agreedAmount) return;
     setSaving(true);
 
+    const percent = parseFloat(commissionPercent);
+    const hasCommission = !isNaN(percent) && percent > 0;
+    const commissionAmount = hasCommission
+      ? Math.round(((Number(agreedAmount) * percent) / 100) * 100) / 100
+      : 0;
+
     const { error } = await supabase.from("contracts").insert({
       event_id: eventId,
       vendor_id: selectedVendor,
       agreed_amount: Number(agreedAmount),
       description: description || null,
       sub_event_id: selectedFunction || null,
+      commission_percent: hasCommission ? percent : 0,
+      commission_amount: commissionAmount,
+      commission_status: hasCommission ? "pending" : "none",
     });
 
     if (error) {
@@ -129,6 +139,30 @@ export default function AddVendorToEventPage() {
             onChange={setAgreedAmount}
             placeholder="0"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="commission">Commission % (optional)</Label>
+          <div className="relative">
+            <Input
+              id="commission"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              max="100"
+              step="0.5"
+              placeholder="e.g., 10"
+              value={commissionPercent}
+              onChange={(e) => setCommissionPercent(e.target.value)}
+              className="pr-8"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-navy-400">%</span>
+          </div>
+          {parseFloat(commissionPercent) > 0 && Number(agreedAmount) > 0 && (
+            <p className="text-xs text-emerald-600">
+              You earn ₹{Math.round((Number(agreedAmount) * parseFloat(commissionPercent)) / 100).toLocaleString("en-IN")} commission from this vendor
+            </p>
+          )}
         </div>
 
         {subEvents.length > 0 && (

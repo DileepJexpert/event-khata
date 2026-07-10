@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { BarChart3, Download, TrendingUp, TrendingDown, CalendarDays } from "lucide-react";
+import { BarChart3, Download, TrendingUp, TrendingDown, CalendarDays, ReceiptIndianRupee } from "lucide-react";
 import { formatCurrency, VENDOR_CATEGORIES } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import Link from "next/link";
@@ -181,6 +181,18 @@ export default function ReportsPage() {
           <Download className="mr-2 h-4 w-4" /> CSV
         </Button>
       </div>
+
+      {/* GST Report link */}
+      <Link href="/reports/gst" className="mb-4 flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+          <ReceiptIndianRupee className="h-5 w-5 text-emerald-600" />
+        </div>
+        <div className="flex-1">
+          <p className="font-semibold text-navy-900 dark:text-navy-100">GST Summary Report</p>
+          <p className="text-xs text-navy-500">Monthly CGST / SGST / IGST breakup for GSTR filing</p>
+        </div>
+        <span className="text-navy-400">&rarr;</span>
+      </Link>
 
       {/* Tabs */}
       <div className="mb-4 flex gap-1 rounded-lg bg-navy-100 p-1 dark:bg-navy-800">

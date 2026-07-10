@@ -13,7 +13,7 @@ import { WhatsAppShare } from "@/components/whatsapp-share";
 import { isRazorpayEnabled, createPaymentLink } from "@/lib/razorpay";
 import { getWhatsAppShareURL } from "@/lib/whatsapp";
 import Link from "next/link";
-import type { Invoice } from "@/lib/types";
+import type { Agency, Invoice } from "@/lib/types";
 
 export default function InvoiceDetailPage() {
   const supabase = createClient();
@@ -23,6 +23,7 @@ export default function InvoiceDetailPage() {
   const invoiceId = params.id as string;
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [agency, setAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
   const [razorpayEnabled, setRazorpayEnabled] = useState(false);
   const [sendingPaymentLink, setSendingPaymentLink] = useState(false);
@@ -32,7 +33,11 @@ export default function InvoiceDetailPage() {
 
   async function load() {
     const { data } = await supabase.from("invoices").select("*").eq("id", invoiceId).single();
-    if (data) setInvoice(data);
+    if (data) {
+      setInvoice(data);
+      const { data: agencyData } = await supabase.from("agencies").select("*").eq("id", data.agency_id).single();
+      if (agencyData) setAgency(agencyData);
+    }
     setLoading(false);
   }
 
@@ -59,15 +64,34 @@ export default function InvoiceDetailPage() {
     const doc = generateInvoicePDF({
       ...invoice,
       items: invoice.items || [],
+      agency_name: agency?.name,
+      agency_gstin: agency?.gstin,
     });
     downloadPDF(doc, `${invoice.invoice_number}.pdf`);
   }
 
   function getInvoiceText() {
     if (!invoice) return "";
+    const gstType = invoice.gst_type || "none";
+    const halfRate = invoice.tax_percent / 2;
+    const taxLines =
+      gstType === "cgst_sgst"
+        ? [
+            `CGST @ ${halfRate}%: ${formatCurrency(invoice.cgst_amount || 0)}`,
+            `SGST @ ${halfRate}%: ${formatCurrency(invoice.sgst_amount || 0)}`,
+          ]
+        : gstType === "igst"
+          ? [`IGST @ ${invoice.tax_percent}%: ${formatCurrency(invoice.igst_amount || 0)}`]
+          : invoice.tax_percent > 0
+            ? [`Tax (${invoice.tax_percent}%): ${formatCurrency(invoice.tax_amount)}`]
+            : [];
     const lines = [
-      `*INVOICE ${invoice.invoice_number}*`,
+      `*${gstType !== "none" ? "TAX INVOICE" : "INVOICE"} ${invoice.invoice_number}*`,
+      agency?.gstin ? `GSTIN: ${agency.gstin}` : "",
       `Client: ${invoice.client_name}`,
+      invoice.client_gstin ? `Client GSTIN: ${invoice.client_gstin}` : "",
+      invoice.place_of_supply ? `Place of Supply: ${invoice.place_of_supply}` : "",
+      gstType !== "none" && invoice.hsn_sac ? `HSN/SAC: ${invoice.hsn_sac}` : "",
       `Date: ${formatDate(invoice.created_at)}`,
       invoice.due_date ? `Due: ${formatDate(invoice.due_date)}` : "",
       "",
@@ -75,7 +99,7 @@ export default function InvoiceDetailPage() {
       ...(invoice.items || []).map((item: any) => `• ${item.description}: ${formatCurrency(item.amount)}`),
       "",
       `Subtotal: ${formatCurrency(invoice.subtotal)}`,
-      `Tax (${invoice.tax_percent}%): ${formatCurrency(invoice.tax_amount)}`,
+      ...taxLines,
       `*Total: ${formatCurrency(invoice.total)}*`,
       "",
       invoice.notes || "",
@@ -132,10 +156,21 @@ export default function InvoiceDetailPage() {
 
       {/* Invoice Card */}
       <div className="mb-6 rounded-xl bg-white p-6 shadow-sm">
+        {(invoice.gst_type === "cgst_sgst" || invoice.gst_type === "igst") && (
+          <p className="mb-3 text-center text-xs font-bold uppercase tracking-widest text-navy-500">Tax Invoice</p>
+        )}
+        {agency && (
+          <div className="mb-4 border-b border-navy-100 pb-4">
+            <p className="font-bold text-navy-900">{agency.name}</p>
+            {agency.gstin && <p className="text-xs text-navy-500">GSTIN: {agency.gstin}</p>}
+            {agency.gst_state_code && <p className="text-xs text-navy-500">State Code: {agency.gst_state_code}</p>}
+          </div>
+        )}
         <div className="mb-4 flex justify-between">
           <div>
             <p className="text-sm text-navy-500">Bill To</p>
             <p className="font-semibold text-navy-900">{invoice.client_name}</p>
+            {invoice.client_gstin && <p className="text-xs text-navy-500">GSTIN: {invoice.client_gstin}</p>}
             {invoice.client_phone && <p className="text-xs text-navy-500">{invoice.client_phone}</p>}
             {invoice.client_email && <p className="text-xs text-navy-500">{invoice.client_email}</p>}
           </div>
@@ -150,6 +185,17 @@ export default function InvoiceDetailPage() {
             )}
           </div>
         </div>
+
+        {(invoice.place_of_supply || (invoice.gst_type && invoice.gst_type !== "none" && invoice.hsn_sac)) && (
+          <div className="mb-4 flex flex-wrap gap-x-6 gap-y-1 rounded-lg bg-navy-50 p-3 text-xs">
+            {invoice.place_of_supply && (
+              <p><span className="text-navy-500">Place of Supply:</span> <span className="font-medium text-navy-900">{invoice.place_of_supply}</span></p>
+            )}
+            {invoice.gst_type && invoice.gst_type !== "none" && invoice.hsn_sac && (
+              <p><span className="text-navy-500">HSN/SAC:</span> <span className="font-medium text-navy-900">{invoice.hsn_sac}</span></p>
+            )}
+          </div>
+        )}
 
         <div className="border-t border-navy-100 pt-4">
           <table className="w-full">
@@ -172,13 +218,31 @@ export default function InvoiceDetailPage() {
 
         <div className="mt-4 space-y-1 border-t border-navy-100 pt-4">
           <div className="flex justify-between text-sm">
-            <span className="text-navy-500">Subtotal</span>
+            <span className="text-navy-500">Subtotal (Taxable Value)</span>
             <span>{formatCurrency(invoice.subtotal)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-navy-500">Tax ({invoice.tax_percent}%)</span>
-            <span>{formatCurrency(invoice.tax_amount)}</span>
-          </div>
+          {invoice.gst_type === "cgst_sgst" ? (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-navy-500">CGST @ {invoice.tax_percent / 2}%</span>
+                <span>{formatCurrency(invoice.cgst_amount || 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-navy-500">SGST @ {invoice.tax_percent / 2}%</span>
+                <span>{formatCurrency(invoice.sgst_amount || 0)}</span>
+              </div>
+            </>
+          ) : invoice.gst_type === "igst" ? (
+            <div className="flex justify-between text-sm">
+              <span className="text-navy-500">IGST @ {invoice.tax_percent}%</span>
+              <span>{formatCurrency(invoice.igst_amount || 0)}</span>
+            </div>
+          ) : invoice.tax_percent > 0 ? (
+            <div className="flex justify-between text-sm">
+              <span className="text-navy-500">Tax ({invoice.tax_percent}%)</span>
+              <span>{formatCurrency(invoice.tax_amount)}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between border-t border-navy-200 pt-2 text-lg font-bold">
             <span>Total</span>
             <span>{formatCurrency(invoice.total)}</span>

@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { CurrencyInput } from "@/components/currency-input";
 import { useToast } from "@/components/ui/toast";
 import { ArrowLeft, Plus, Loader2, Trash2, CheckCircle2, Clock, AlertTriangle, MessageCircle, Zap, IndianRupee } from "lucide-react";
-import { formatCurrency, formatDate, daysUntil } from "@/lib/utils";
-import { getWhatsAppShareURL, getPaymentReminderMessage } from "@/lib/whatsapp";
+import { formatCurrency, formatDate, daysUntil, timeAgo } from "@/lib/utils";
+import { getWhatsAppShareURL, getScheduleReminderMessage } from "@/lib/whatsapp";
 import { checkWhatsAppAPI, sendWhatsAppMessage } from "@/lib/whatsapp-api";
 import { isRazorpayEnabled, createPaymentLink } from "@/lib/razorpay";
 import Link from "next/link";
@@ -106,24 +106,25 @@ export default function PaymentSchedulePage() {
       addToast({ title: "No phone number", description: "Add a phone number for this vendor first.", variant: "destructive" });
       return;
     }
-    const isOverdue = sch.due_date && new Date(sch.due_date) < new Date();
-    const msg = getPaymentReminderMessage({
+    const msg = getScheduleReminderMessage({
       vendorName: sch.vendor.name,
       amount: Number(sch.amount),
-      dueDate: formatDate(sch.due_date),
       label: sch.label,
-      overdue: !!isOverdue,
+      dueDate: formatDate(sch.due_date),
     });
 
     if (whatsappAPI) {
       setSendingReminder(sch.id);
       const result = await sendWhatsAppMessage({ phone: sch.vendor.phone, message: msg });
-      setSendingReminder(null);
       if (result.success) {
+        const sentAt = new Date().toISOString();
+        await supabase.from("payment_schedules").update({ reminder_sent_at: sentAt }).eq("id", sch.id);
+        setSchedules((prev) => prev.map((s) => (s.id === sch.id ? { ...s, reminder_sent_at: sentAt } : s)));
         addToast({ title: "Reminder sent", description: `WhatsApp message sent to ${sch.vendor.name}`, variant: "success" });
       } else {
         addToast({ title: "Failed to send", description: result.error || "Could not send WhatsApp message", variant: "destructive" });
       }
+      setSendingReminder(null);
     } else {
       window.open(getWhatsAppShareURL(sch.vendor.phone, msg), "_blank");
     }
@@ -244,6 +245,9 @@ export default function PaymentSchedulePage() {
                       {formatDate(sch.due_date)}
                       {sch.status !== "paid" && (isOverdue ? ` (${Math.abs(days)}d overdue)` : days <= 7 ? ` (${days}d left)` : "")}
                     </p>
+                    {sch.status !== "paid" && sch.reminder_sent_at && (
+                      <p className="mt-0.5 text-xs text-navy-400">Reminded {timeAgo(sch.reminder_sent_at)}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

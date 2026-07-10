@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { Plus, Loader2, FileText, Send, Download } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { Plus, Loader2, FileText, Send, Download, MessageCircle } from "lucide-react";
+import { formatCurrency, formatDate, timeAgo } from "@/lib/utils";
+import { getInvoiceReminderMessage } from "@/lib/whatsapp";
+import { checkWhatsAppAPI, sendWhatsAppMessage } from "@/lib/whatsapp-api";
 import Link from "next/link";
 import type { Invoice } from "@/lib/types";
 
@@ -24,13 +26,37 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { checkWhatsAppAPI().then(setWhatsappEnabled); }, []);
 
   async function load() {
     const { data } = await supabase.from("invoices").select("*").order("created_at", { ascending: false });
     if (data) setInvoices(data);
     setLoading(false);
+  }
+
+  async function remindClient(inv: Invoice) {
+    if (!inv.client_phone || sendingReminder) return;
+    setSendingReminder(inv.id);
+    const message = getInvoiceReminderMessage({
+      clientName: inv.client_name,
+      invoiceNumber: inv.invoice_number,
+      balance: inv.total - inv.amount_paid,
+      dueDate: inv.due_date ? formatDate(inv.due_date) : null,
+    });
+    const result = await sendWhatsAppMessage({ phone: inv.client_phone, message });
+    if (result.success) {
+      const sentAt = new Date().toISOString();
+      await supabase.from("invoices").update({ reminder_sent_at: sentAt }).eq("id", inv.id);
+      setInvoices((prev) => prev.map((i) => (i.id === inv.id ? { ...i, reminder_sent_at: sentAt } : i)));
+      addToast({ title: "Reminder sent", description: `WhatsApp reminder sent to ${inv.client_name}`, variant: "success" });
+    } else {
+      addToast({ title: "Failed to send", description: result.error || "Could not send WhatsApp message", variant: "destructive" });
+    }
+    setSendingReminder(null);
   }
 
   const filtered = filterStatus === "all" ? invoices : invoices.filter((i) => i.status === filterStatus);
@@ -89,6 +115,30 @@ export default function InvoicesPage() {
                 )}
               </div>
             </div>
+            {whatsappEnabled && (inv.status === "sent" || inv.status === "overdue") && inv.client_phone && (
+              <div className="mt-3 flex items-center justify-between border-t border-navy-100 pt-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={sendingReminder === inv.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    remindClient(inv);
+                  }}
+                >
+                  {sendingReminder === inv.id ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <MessageCircle className="mr-1 h-3 w-3" />
+                  )}
+                  Remind
+                </Button>
+                {inv.reminder_sent_at && (
+                  <span className="text-xs text-navy-400">Reminded {timeAgo(inv.reminder_sent_at)}</span>
+                )}
+              </div>
+            )}
           </Link>
         ))}
         {filtered.length === 0 && (

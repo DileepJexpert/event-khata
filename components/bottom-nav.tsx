@@ -14,6 +14,7 @@ import {
   Bell,
   CalendarCheck,
   Receipt,
+  Sparkles,
 } from "lucide-react";
 
 const navItems = [
@@ -32,6 +33,7 @@ const moreItems = [
   { href: "/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/reminders", label: "Reminders", icon: Bell },
   { href: "/events/calendar", label: "Calendar", icon: CalendarCheck },
+  { href: "/muhurat", label: "Muhurat", icon: Sparkles },
   { href: "/team", label: "Team", icon: Users },
   { href: "/notifications", label: "Alerts", icon: Bell },
   { href: "/settings", label: "Settings", icon: Settings },

@@ -14,7 +14,7 @@ import {
   ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
   Send, Copy, Save, AlertTriangle, Sparkles, Loader2, X, Lightbulb, Brain, ChevronDown, ChevronUp,
-  Camera, Armchair, UserCheck,
+  Camera, Armchair, UserCheck, TrendingUp,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
@@ -444,6 +444,10 @@ export default function EventDetailPage() {
         <Link href={`/events/${eventId}/checkin`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <UserCheck className="h-5 w-5 text-green-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Check-in</span>
+        </Link>
+        <Link href={`/events/${eventId}/pnl`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+          <TrendingUp className="h-5 w-5 text-lime-600" />
+          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">P&L</span>
         </Link>
       </div>
 

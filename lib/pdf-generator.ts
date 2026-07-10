@@ -16,6 +16,14 @@ type InvoiceData = {
   created_at: string;
   agency_name?: string;
   agency_phone?: string;
+  agency_gstin?: string | null;
+  client_gstin?: string | null;
+  place_of_supply?: string | null;
+  gst_type?: "none" | "cgst_sgst" | "igst" | null;
+  cgst_amount?: number | null;
+  sgst_amount?: number | null;
+  igst_amount?: number | null;
+  hsn_sac?: string | null;
 };
 
 type ProposalData = {
@@ -92,40 +100,71 @@ function addFooter(doc: jsPDF) {
 
 export function generateInvoicePDF(data: InvoiceData): jsPDF {
   const doc = new jsPDF();
+  const isGst = data.gst_type === "cgst_sgst" || data.gst_type === "igst";
 
-  addHeader(doc, "INVOICE", data.invoice_number, data.agency_name);
+  addHeader(doc, isGst ? "TAX INVOICE" : "INVOICE", data.invoice_number, data.agency_name);
 
   let y = 52;
 
+  if (data.agency_gstin) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text(`GSTIN: ${data.agency_gstin}`, 20, y - 4);
+    doc.setTextColor(0, 0, 0);
+    y += 4;
+  }
+
   // Client info + dates
+  const leftX = 20;
+  const rightX = 130;
+  let leftY = y;
+  let rightY = y;
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(100, 116, 139);
-  doc.text("BILL TO", 20, y);
-  doc.text("DETAILS", 130, y);
-  y += 6;
+  doc.text("BILL TO", leftX, leftY);
+  doc.text("DETAILS", rightX, rightY);
+  leftY += 6;
+  rightY += 6;
 
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(data.client_name, 20, y);
+  doc.text(data.client_name, leftX, leftY);
+  leftY += 5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`Date: ${formatDateStr(data.created_at)}`, 130, y);
-  y += 5;
-
+  if (data.client_gstin) {
+    doc.text(`GSTIN: ${data.client_gstin}`, leftX, leftY);
+    leftY += 5;
+  }
   if (data.client_phone) {
-    doc.text(data.client_phone, 20, y);
-    y += 5;
+    doc.text(data.client_phone, leftX, leftY);
+    leftY += 5;
   }
   if (data.client_email) {
-    doc.text(data.client_email, 20, y);
-  }
-  if (data.due_date) {
-    doc.text(`Due: ${formatDateStr(data.due_date)}`, 130, y - (data.client_phone ? 0 : 5) + 5);
+    doc.text(data.client_email, leftX, leftY);
+    leftY += 5;
   }
 
-  y = Math.max(y, 72) + 10;
+  doc.text(`Date: ${formatDateStr(data.created_at)}`, rightX, rightY);
+  rightY += 5;
+  if (data.due_date) {
+    doc.text(`Due: ${formatDateStr(data.due_date)}`, rightX, rightY);
+    rightY += 5;
+  }
+  if (data.place_of_supply) {
+    doc.text(`Place of Supply: ${data.place_of_supply}`, rightX, rightY);
+    rightY += 5;
+  }
+  if (isGst && data.hsn_sac) {
+    doc.text(`HSN/SAC: ${data.hsn_sac}`, rightX, rightY);
+    rightY += 5;
+  }
+
+  y = Math.max(leftY, rightY, 72) + 10;
 
   // Items table header
   doc.setFillColor(241, 245, 249);
@@ -162,11 +201,22 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
   // Totals
   const totalsX = 130;
   doc.setFontSize(10);
-  doc.text("Subtotal", totalsX, y);
+  doc.text(isGst ? "Taxable Value" : "Subtotal", totalsX, y);
   doc.text(formatINR(data.subtotal), 186, y, { align: "right" });
   y += 6;
 
-  if (data.tax_percent > 0) {
+  if (data.gst_type === "cgst_sgst") {
+    doc.text(`CGST @ ${data.tax_percent / 2}%`, totalsX, y);
+    doc.text(formatINR(data.cgst_amount || 0), 186, y, { align: "right" });
+    y += 6;
+    doc.text(`SGST @ ${data.tax_percent / 2}%`, totalsX, y);
+    doc.text(formatINR(data.sgst_amount || 0), 186, y, { align: "right" });
+    y += 6;
+  } else if (data.gst_type === "igst") {
+    doc.text(`IGST @ ${data.tax_percent}%`, totalsX, y);
+    doc.text(formatINR(data.igst_amount || 0), 186, y, { align: "right" });
+    y += 6;
+  } else if (data.tax_percent > 0) {
     doc.text(`Tax (${data.tax_percent}%)`, totalsX, y);
     doc.text(formatINR(data.tax_amount), 186, y, { align: "right" });
     y += 6;

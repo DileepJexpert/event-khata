@@ -12,7 +12,9 @@ import { useToast } from "@/components/ui/toast";
 import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import { formatCurrency, isValidPhone, isValidEmail } from "@/lib/utils";
 import Link from "next/link";
-import type { Event, InvoiceItem } from "@/lib/types";
+import type { Event, GstType, InvoiceItem } from "@/lib/types";
+
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
 export default function NewInvoicePage() {
   const supabase = createClient();
@@ -31,6 +33,10 @@ export default function NewInvoicePage() {
   const [dueDate, setDueDate] = useState("");
   const [taxPercent, setTaxPercent] = useState("18");
   const [notes, setNotes] = useState("");
+  const [clientGstin, setClientGstin] = useState("");
+  const [placeOfSupply, setPlaceOfSupply] = useState("");
+  const [gstType, setGstType] = useState<GstType>("none");
+  const [hsnSac, setHsnSac] = useState("998596");
   const [items, setItems] = useState<InvoiceItem[]>([{ description: "", category: "", amount: 0 }]);
 
   useEffect(() => {
@@ -75,8 +81,12 @@ export default function NewInvoicePage() {
   }
 
   const subtotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const taxAmount = subtotal * (Number(taxPercent) / 100);
+  const taxAmount = gstType === "none" ? 0 : subtotal * (Number(taxPercent) / 100);
   const total = subtotal + taxAmount;
+  const cgstAmount = gstType === "cgst_sgst" ? taxAmount / 2 : 0;
+  const sgstAmount = gstType === "cgst_sgst" ? taxAmount / 2 : 0;
+  const igstAmount = gstType === "igst" ? taxAmount : 0;
+  const halfRate = Number(taxPercent) / 2;
 
   async function handleSave() {
     const newErrors: Record<string, string> = {};
@@ -84,6 +94,7 @@ export default function NewInvoicePage() {
     if (clientPhone && !isValidPhone(clientPhone)) newErrors.clientPhone = "Enter a valid 10-digit phone number";
     if (clientEmail && !isValidEmail(clientEmail)) newErrors.clientEmail = "Enter a valid email address";
     if (items.every((item) => !item.description.trim() && !item.amount)) newErrors.items = "Add at least one item";
+    if (clientGstin && !GSTIN_REGEX.test(clientGstin.trim().toUpperCase())) newErrors.clientGstin = "Enter a valid 15-character GSTIN";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -102,9 +113,16 @@ export default function NewInvoicePage() {
       client_email: clientEmail || null,
       items,
       subtotal,
-      tax_percent: Number(taxPercent),
+      tax_percent: gstType === "none" ? 0 : Number(taxPercent),
       tax_amount: taxAmount,
       total,
+      client_gstin: clientGstin ? clientGstin.trim().toUpperCase() : null,
+      place_of_supply: placeOfSupply.trim() || null,
+      gst_type: gstType,
+      cgst_amount: cgstAmount,
+      sgst_amount: sgstAmount,
+      igst_amount: igstAmount,
+      hsn_sac: hsnSac.trim() || "998596",
       due_date: dueDate || null,
       notes: notes || null,
       status: "draft",
@@ -200,16 +218,61 @@ export default function NewInvoicePage() {
           </div>
         </div>
 
-        {/* Tax */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label>Tax %</Label>
-            <Input type="number" value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />
+        {/* GST */}
+        <div className="space-y-3 rounded-xl border border-navy-200 p-4 dark:border-navy-700">
+          <Label>GST</Label>
+          <div className="flex gap-1 rounded-lg bg-navy-100 p-1 dark:bg-navy-800">
+            {([
+              { value: "none" as const, label: "No GST" },
+              { value: "cgst_sgst" as const, label: "CGST + SGST" },
+              { value: "igst" as const, label: "IGST" },
+            ]).map(({ value, label }) => (
+              <button key={value} type="button" onClick={() => setGstType(value)}
+                className={`flex-1 rounded-md py-2 text-xs font-semibold transition-colors ${
+                  gstType === value ? "bg-white text-navy-900 shadow-sm dark:bg-navy-700 dark:text-navy-100" : "text-navy-500"
+                }`}>
+                {label}
+              </button>
+            ))}
           </div>
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </div>
+          {gstType !== "none" && (
+            <>
+              <p className="text-xs text-navy-400">
+                {gstType === "cgst_sgst" ? "Intra-state supply: tax splits equally into CGST and SGST." : "Inter-state supply: full tax charged as IGST."}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>GST Rate %</Label>
+                  <Input type="number" value={taxPercent} onChange={(e) => setTaxPercent(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>HSN/SAC</Label>
+                  <Input value={hsnSac} onChange={(e) => setHsnSac(e.target.value)} placeholder="998596" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Client GSTIN (optional)</Label>
+                  <Input
+                    value={clientGstin}
+                    onChange={(e) => { setClientGstin(e.target.value.toUpperCase()); setErrors({ ...errors, clientGstin: "" }); }}
+                    placeholder="e.g. 27ABCDE1234F1Z5"
+                    className={errors.clientGstin ? "border-red-500" : ""}
+                  />
+                  {errors.clientGstin && <p className="text-xs text-red-500">{errors.clientGstin}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label>Place of Supply</Label>
+                  <Input value={placeOfSupply} onChange={(e) => setPlaceOfSupply(e.target.value)} placeholder="e.g. 27-Maharashtra" />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>Due Date</Label>
+          <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
 
         {/* Totals */}
@@ -218,10 +281,24 @@ export default function NewInvoicePage() {
             <span className="text-navy-600">Subtotal</span>
             <span className="font-semibold">{formatCurrency(subtotal)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-navy-600">Tax ({taxPercent}%)</span>
-            <span className="font-semibold">{formatCurrency(taxAmount)}</span>
-          </div>
+          {gstType === "cgst_sgst" && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-navy-600">CGST @ {halfRate}%</span>
+                <span className="font-semibold">{formatCurrency(cgstAmount)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-navy-600">SGST @ {halfRate}%</span>
+                <span className="font-semibold">{formatCurrency(sgstAmount)}</span>
+              </div>
+            </>
+          )}
+          {gstType === "igst" && (
+            <div className="flex justify-between text-sm">
+              <span className="text-navy-600">IGST @ {taxPercent}%</span>
+              <span className="font-semibold">{formatCurrency(igstAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-navy-200 pt-2 text-lg dark:border-navy-600">
             <span className="font-bold text-navy-900 dark:text-navy-100">Total</span>
             <span className="font-bold text-navy-900 dark:text-navy-100">{formatCurrency(total)}</span>

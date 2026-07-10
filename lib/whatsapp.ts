@@ -44,6 +44,25 @@ We'll process it shortly. Please share your latest payment details if anything h
 Thank you!`;
 }
 
+export function getInvoiceReminderMessage(data: {
+  clientName: string;
+  invoiceNumber: string;
+  balance: number;
+  dueDate: string | null;
+}): string {
+  const due = data.dueDate ? ` (due ${data.dueDate})` : "";
+  return `Namaste ${data.clientName} ji, this is a payment reminder for invoice ${data.invoiceNumber} of ₹${data.balance.toLocaleString("en-IN")}${due}. Kindly complete the payment at your convenience. Thank you!`;
+}
+
+export function getScheduleReminderMessage(data: {
+  vendorName: string;
+  amount: number;
+  label: string;
+  dueDate: string;
+}): string {
+  return `Namaste ${data.vendorName} ji, reminder: payment of ₹${data.amount.toLocaleString("en-IN")} (${data.label}) for the event is scheduled on ${data.dueDate}. — via EventKhata`;
+}
+
 export function getEventUpdateMessage(data: {
   clientName: string;
   eventType: string;

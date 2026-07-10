@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor, Lock, Eye, EyeOff } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor, Lock, Eye, EyeOff, ReceiptIndianRupee } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
@@ -30,6 +30,9 @@ export default function SettingsPage() {
   const [state, setState] = useState("");
   const [currency, setCurrency] = useState("INR");
   const [subscription, setSubscription] = useState("free");
+  const [gstin, setGstin] = useState("");
+  const [gstStateCode, setGstStateCode] = useState("");
+  const [savingGst, setSavingGst] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -56,6 +59,8 @@ export default function SettingsPage() {
       setState(agencyData.state || "");
       setCurrency(agencyData.currency || "INR");
       setSubscription(agencyData.subscription_status || "free");
+      setGstin(agencyData.gstin || "");
+      setGstStateCode(agencyData.gst_state_code || "");
     }
 
     // Check admin separately (table may not exist)
@@ -94,6 +99,30 @@ export default function SettingsPage() {
       addToast({ title: "Settings saved!", variant: "success" });
     }
     setSaving(false);
+  }
+
+  async function handleSaveGst() {
+    if (!userId) return;
+    const cleanGstin = gstin.trim().toUpperCase();
+    if (cleanGstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(cleanGstin)) {
+      addToast({ title: "Invalid GSTIN", description: "GSTIN must be 15 characters, e.g. 27ABCDE1234F1Z5", variant: "destructive" });
+      return;
+    }
+    const cleanStateCode = gstStateCode.trim() || (cleanGstin ? cleanGstin.slice(0, 2) : "");
+    setSavingGst(true);
+    const { error } = await supabase.from("agencies").update({
+      gstin: cleanGstin || null,
+      gst_state_code: cleanStateCode || null,
+    }).eq("id", userId);
+
+    if (error) {
+      addToast({ title: "Failed to save", description: error.message, variant: "destructive" });
+    } else {
+      setGstin(cleanGstin);
+      setGstStateCode(cleanStateCode);
+      addToast({ title: "GST details saved!", variant: "success" });
+    }
+    setSavingGst(false);
   }
 
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -330,6 +359,44 @@ export default function SettingsPage() {
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Save Profile
+          </Button>
+        </div>
+      </div>
+
+      {/* GST Details */}
+      <div className="mb-6 rounded-xl bg-white p-4 shadow-sm dark:bg-navy-900">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+            <ReceiptIndianRupee className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">GST Details</h2>
+            <p className="text-sm text-navy-500">Shown on tax invoices &amp; GST reports</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>GSTIN</Label>
+            <Input
+              value={gstin}
+              onChange={(e) => setGstin(e.target.value.toUpperCase())}
+              placeholder="e.g. 27ABCDE1234F1Z5"
+              maxLength={15}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>GST State Code</Label>
+            <Input
+              value={gstStateCode}
+              onChange={(e) => setGstStateCode(e.target.value)}
+              placeholder="e.g. 27 (Maharashtra)"
+              maxLength={2}
+            />
+            <p className="text-xs text-navy-400">First 2 digits of your GSTIN. Auto-filled from GSTIN if left blank.</p>
+          </div>
+          <Button onClick={handleSaveGst} disabled={savingGst} className="w-full">
+            {savingGst ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Save GST Details
           </Button>
         </div>
       </div>

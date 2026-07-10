@@ -6,8 +6,12 @@ export type Agency = {
   owner_email: string | null;
   subscription_status: "free" | "pro" | "enterprise";
   currency: string;
+  gstin: string | null;
+  gst_state_code: string | null;
   created_at: string;
 };
+
+export type GstType = "none" | "cgst_sgst" | "igst";
 
 export type Expense = {
   id: string;
@@ -155,6 +159,8 @@ export type Vendor = {
   created_at: string;
 };
 
+export type CommissionStatus = "none" | "pending" | "partial" | "received";
+
 export type Contract = {
   id: string;
   event_id: string;
@@ -163,6 +169,10 @@ export type Contract = {
   agreed_amount: number;
   description: string | null;
   status: "pending" | "confirmed" | "completed" | "cancelled";
+  commission_percent: number | null;
+  commission_amount: number | null;
+  commission_received: number | null;
+  commission_status: CommissionStatus | null;
   created_at: string;
 };
 
@@ -196,6 +206,7 @@ export type PaymentSchedule = {
   paid_at: string | null;
   ledger_id: string | null;
   notes: string | null;
+  reminder_sent_at: string | null;
   created_at: string;
 };
 
@@ -281,6 +292,14 @@ export type Invoice = {
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   due_date: string | null;
   notes: string | null;
+  client_gstin: string | null;
+  place_of_supply: string | null;
+  gst_type: GstType | null;
+  cgst_amount: number | null;
+  sgst_amount: number | null;
+  igst_amount: number | null;
+  hsn_sac: string | null;
+  reminder_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -68,8 +68,23 @@ export async function POST(req: NextRequest) {
       .select("id")
       .eq("phone", cleanedPhone)
       .limit(1);
+    const { data: eventClientMatch } = await supabase
+      .from("events")
+      .select("id")
+      .in("client_phone", [phone, cleanedPhone])
+      .limit(1);
+    const { data: invoiceClientMatch } = await supabase
+      .from("invoices")
+      .select("id")
+      .in("client_phone", [phone, cleanedPhone])
+      .limit(1);
 
-    if ((!vendorMatch || vendorMatch.length === 0) && (!guestMatch || guestMatch.length === 0)) {
+    if (
+      (!vendorMatch || vendorMatch.length === 0) &&
+      (!guestMatch || guestMatch.length === 0) &&
+      (!eventClientMatch || eventClientMatch.length === 0) &&
+      (!invoiceClientMatch || invoiceClientMatch.length === 0)
+    ) {
       return NextResponse.json(
         { success: false, error: "Phone number does not belong to any of your contacts" },
         { status: 403 }

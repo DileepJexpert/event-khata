@@ -30,6 +30,8 @@ CREATE TABLE agencies (
   owner_email TEXT,
   subscription_status TEXT DEFAULT 'free' CHECK (subscription_status IN ('free', 'pro', 'enterprise')),
   currency TEXT DEFAULT 'INR',
+  gstin TEXT,
+  gst_state_code TEXT,
   city TEXT,
   state TEXT,
   is_active BOOLEAN DEFAULT true,
@@ -120,6 +122,10 @@ CREATE TABLE contracts (
   agreed_amount NUMERIC(12,2) NOT NULL,
   description TEXT,
   status TEXT DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+  commission_percent NUMERIC(5,2) DEFAULT 0,
+  commission_amount NUMERIC(12,2) DEFAULT 0,
+  commission_received NUMERIC(12,2) DEFAULT 0,
+  commission_status TEXT DEFAULT 'none' CHECK (commission_status IN ('none', 'pending', 'partial', 'received')),
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(event_id, vendor_id)
 );
@@ -168,6 +174,7 @@ CREATE TABLE payment_schedules (
   label TEXT NOT NULL DEFAULT 'Payment',
   status TEXT DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'due', 'overdue', 'paid')),
   paid_at TIMESTAMPTZ,
+  reminder_sent_at TIMESTAMPTZ,
   ledger_id UUID REFERENCES ledger(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -293,6 +300,14 @@ CREATE TABLE invoices (
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
   due_date DATE,
   notes TEXT,
+  client_gstin TEXT,
+  place_of_supply TEXT,
+  gst_type TEXT DEFAULT 'none' CHECK (gst_type IN ('none', 'cgst_sgst', 'igst')),
+  cgst_amount NUMERIC(12,2) DEFAULT 0,
+  sgst_amount NUMERIC(12,2) DEFAULT 0,
+  igst_amount NUMERIC(12,2) DEFAULT 0,
+  hsn_sac TEXT DEFAULT '998596',
+  reminder_sent_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
