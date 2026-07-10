@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+def releaseStoreFile = keystoreProperties['storeFile'] ?: System.getenv('EVENTKHATA_UPLOAD_STORE_FILE')
+def releaseStorePassword = keystoreProperties['storePassword'] ?: System.getenv('EVENTKHATA_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = keystoreProperties['keyAlias'] ?: System.getenv('EVENTKHATA_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = keystoreProperties['keyPassword'] ?: System.getenv('EVENTKHATA_UPLOAD_KEY_PASSWORD')
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
 android {
     namespace = "com.eventkhata.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -18,16 +30,21 @@ android {
     }
     signingConfigs {
         release {
-            if (project.hasProperty('EVENTKHATA_STORE_FILE')) {
-                storeFile file(EVENTKHATA_STORE_FILE)
-                storePassword EVENTKHATA_STORE_PASSWORD
-                keyAlias EVENTKHATA_KEY_ALIAS
-                keyPassword EVENTKHATA_KEY_PASSWORD
+            if (hasReleaseSigning) {
+                storeFile rootProject.file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
             }
         }
     }
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn('Release signing is not configured. Add android/keystore.properties or EVENTKHATA_UPLOAD_* environment variables before Play Store upload.')
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             if (project.hasProperty('EVENTKHATA_STORE_FILE')) {

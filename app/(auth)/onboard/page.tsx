@@ -68,7 +68,7 @@ export default function OnboardPage() {
       return;
     }
 
-    window.location.href = "/events";
+    window.location.href = "/events/new";
   };
 
   return (

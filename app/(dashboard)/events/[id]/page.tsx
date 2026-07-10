@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +48,9 @@ export default function EventDetailPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTips, setAiTips] = useState<VendorSuggestionResponse | null>(null);
   const [showAiTips, setShowAiTips] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -179,10 +183,17 @@ export default function EventDetailPage() {
     router.push(`/events/${newEvent.id}`);
   }
 
+  function openTemplateDialog() {
+    if (!event) return;
+    setTemplateName(`${event.event_type} template`);
+    setShowTemplateDialog(true);
+  }
+
   async function saveAsTemplate() {
     if (!event) return;
-    const name = window.prompt("Template name:", `${event.event_type} template`);
+    const name = templateName.trim();
     if (!name) return;
+    setSavingTemplate(true);
 
     const eventDate = event.event_date ? new Date(event.event_date) : null;
     const templateTasks = tasks.map((t) => {
@@ -206,7 +217,11 @@ export default function EventDetailPage() {
     });
 
     if (error) addToast({ title: "Failed to save template", description: error.message, variant: "destructive" });
-    else addToast({ title: "Saved as template!", description: "Reuse it when creating new events.", variant: "success" });
+    else {
+      addToast({ title: "Saved as template!", description: "Reuse it when creating new events.", variant: "success" });
+      setShowTemplateDialog(false);
+    }
+    setSavingTemplate(false);
   }
 
   function shareEventSummary() {
@@ -336,15 +351,15 @@ export default function EventDetailPage() {
             <Plus className="mr-2 h-4 w-4" /> Add Vendor
           </Link>
         </Button>
-        <Button variant="outline" onClick={shareEventSummary} title="Share summary on WhatsApp">
+        <Button variant="outline" onClick={shareEventSummary} title="Share summary on WhatsApp" aria-label="Share summary on WhatsApp">
           <Send className="h-4 w-4" />
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" aria-label="Edit event">
           <Link href={`/events/${eventId}/edit`}>
             <Pencil className="h-4 w-4" />
           </Link>
         </Button>
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" aria-label="Open public share page">
           <Link href={`/events/${eventId}/share`}>
             <Share2 className="h-4 w-4" />
           </Link>
@@ -400,48 +415,48 @@ export default function EventDetailPage() {
       )}
 
       {/* Feature Grid */}
-      <div className="mb-4 grid grid-cols-4 gap-2">
-        <Link href={`/events/${eventId}/sub-events`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <Link href={`/events/${eventId}/sub-events`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <PartyPopper className="h-5 w-5 text-pink-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Functions</span>
         </Link>
-        <Link href={`/events/${eventId}/tasks`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/tasks`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <ListChecks className="h-5 w-5 text-blue-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Checklist</span>
         </Link>
-        <Link href={`/events/${eventId}/guests`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/guests`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Users className="h-5 w-5 text-purple-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Guests</span>
         </Link>
-        <Link href={`/events/${eventId}/timeline`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/timeline`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Clock className="h-5 w-5 text-amber-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Timeline</span>
         </Link>
-        <Link href={`/events/${eventId}/payment-schedule`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/payment-schedule`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <CreditCard className="h-5 w-5 text-emerald-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Payments</span>
         </Link>
-        <Link href={`/events/${eventId}/documents`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/documents`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <FileText className="h-5 w-5 text-navy-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Documents</span>
         </Link>
-        <Link href={`/events/${eventId}/communication`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/communication`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <MessageCircle className="h-5 w-5 text-teal-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Comms</span>
         </Link>
-        <Link href={`/events/${eventId}/invite`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/invite`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Send className="h-5 w-5 text-rose-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">E-Invite</span>
         </Link>
-        <Link href={`/events/${eventId}/gallery`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/gallery`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Camera className="h-5 w-5 text-indigo-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Gallery</span>
         </Link>
-        <Link href={`/events/${eventId}/seating`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/seating`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <Armchair className="h-5 w-5 text-orange-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Seating</span>
         </Link>
-        <Link href={`/events/${eventId}/checkin`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
+        <Link href={`/events/${eventId}/checkin`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
           <UserCheck className="h-5 w-5 text-green-600" />
           <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Check-in</span>
         </Link>
@@ -525,7 +540,7 @@ export default function EventDetailPage() {
           <span>Duplicate this event</span>
         </button>
         <button
-          onClick={saveAsTemplate}
+          onClick={openTemplateDialog}
           className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50 dark:bg-navy-900 dark:text-navy-300 dark:hover:bg-navy-800"
         >
           <Save className="h-4 w-4" />
@@ -644,6 +659,34 @@ export default function EventDetailPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showTemplateDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTemplateDialog(false)}>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:border dark:border-navy-700 dark:bg-navy-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-2 text-lg font-bold text-navy-900 dark:text-navy-100">Save as Template</h3>
+            <p className="mb-4 text-sm text-navy-500">Reuse this event structure when creating future events.</p>
+            <Input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Template name"
+              autoFocus
+            />
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={() => setShowTemplateDialog(false)} disabled={savingTemplate}>
+                Cancel
+              </Button>
+              <Button onClick={saveAsTemplate} disabled={savingTemplate || !templateName.trim()}>
+                {savingTemplate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save
+              </Button>
+            </div>
           </div>
         </div>
       )}

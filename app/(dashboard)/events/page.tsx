@@ -7,9 +7,8 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, CalendarDays, LogOut } from "lucide-react";
+import { Plus, Search, CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Event } from "@/lib/types";
 
 export default function EventsPage() {
@@ -18,7 +17,6 @@ export default function EventsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const supabase = createClient();
-  const router = useRouter();
 
   useEffect(() => {
     loadEvents();
@@ -59,11 +57,6 @@ export default function EventsPage() {
     setLoading(false);
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/login");
-  }
-
   const filtered = events.filter((e) => {
     const matchSearch = e.client_name.toLowerCase().includes(search.toLowerCase()) ||
       (e.venue || "").toLowerCase().includes(search.toLowerCase());
@@ -78,16 +71,11 @@ export default function EventsPage() {
           <h1 className="text-xl font-bold text-navy-900 dark:text-navy-100">Events</h1>
           <p className="text-sm text-navy-500">{events.length} total events</p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/events/calendar">
-            <Button variant="outline" size="icon">
-              <CalendarDays className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-5 w-5" />
+        <Link href="/events/calendar">
+          <Button variant="outline" size="icon" aria-label="Open event calendar">
+            <CalendarDays className="h-5 w-5" />
           </Button>
-        </div>
+        </Link>
       </div>
 
       <div className="mb-4 flex gap-2">

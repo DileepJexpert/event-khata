@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor, Lock, Eye, EyeOff, ReceiptIndianRupee } from "lucide-react";
+import { Loader2, Building2, Crown, LogOut, Shield, Mail, Download, Database, HelpCircle, MessageCircle, ExternalLink, Sun, Moon, Monitor, Lock, Eye, EyeOff, ReceiptIndianRupee, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
 import { CURRENCIES, setActiveCurrency } from "@/lib/utils";
+
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@eventkhata.com";
+const SUPPORT_WHATSAPP = (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "").replace(/\D/g, "");
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -201,6 +204,20 @@ export default function SettingsPage() {
   }
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-navy-400" /></div>;
+
+  const supportMailHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("EventKhata Support")}`;
+  const supportWhatsAppHref = SUPPORT_WHATSAPP
+    ? `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent("Hi, I need help with EventKhata")}`
+    : "";
+  const deleteRequestHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("EventKhata account deletion request")}&body=${encodeURIComponent(
+    [
+      "Please delete my EventKhata account and associated data.",
+      "",
+      `Account email: ${userEmail || "Not available"}`,
+      `Agency: ${agencyName || "Not available"}`,
+      `User ID: ${userId || "Not available"}`,
+    ].join("\n")
+  )}`;
 
   return (
     <div className="px-4 pb-24 pt-4">
@@ -451,7 +468,13 @@ export default function SettingsPage() {
             {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             {exporting ? "Exporting..." : "Export All Data (CSV)"}
           </Button>
-          <p className="text-xs text-navy-400 text-center">Downloads separate CSV files for each data table. Your data is stored securely and never shared.</p>
+          <Button asChild variant="outline" size="sm" className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-900/20">
+            <a href={deleteRequestHref}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Request Account Deletion
+            </a>
+          </Button>
+          <p className="text-center text-xs text-navy-400">Download your records or request removal of your account and stored event data.</p>
         </div>
       </div>
 
@@ -464,18 +487,20 @@ export default function SettingsPage() {
           <h2 className="text-lg font-bold text-navy-900 dark:text-navy-100">Help & Support</h2>
         </div>
         <div className="space-y-2">
+          {supportWhatsAppHref && (
+            <a
+              href={supportWhatsAppHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50 dark:border-navy-700 dark:text-navy-300 dark:hover:bg-navy-800"
+            >
+              <MessageCircle className="h-4 w-4 text-emerald-600" />
+              <span className="flex-1">Chat with Support</span>
+              <ExternalLink className="h-3.5 w-3.5 text-navy-400" />
+            </a>
+          )}
           <a
-            href="https://wa.me/919999999999?text=Hi%2C%20I%20need%20help%20with%20EventKhata"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50 dark:border-navy-700 dark:text-navy-300 dark:hover:bg-navy-800"
-          >
-            <MessageCircle className="h-4 w-4 text-emerald-600" />
-            <span className="flex-1">Chat with Support</span>
-            <ExternalLink className="h-3.5 w-3.5 text-navy-400" />
-          </a>
-          <a
-            href="mailto:support@eventkhata.com?subject=EventKhata%20Support"
+            href={supportMailHref}
             className="flex items-center gap-3 rounded-lg border border-navy-200 p-3 text-sm text-navy-700 hover:bg-navy-50 dark:border-navy-700 dark:text-navy-300 dark:hover:bg-navy-800"
           >
             <Mail className="h-4 w-4 text-blue-600" />

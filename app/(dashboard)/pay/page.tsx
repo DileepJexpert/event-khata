@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,8 @@ type SavedPayment = {
   date: string;
 };
 
+const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
+
 export default function QuickPayPage() {
   const supabase = createClient();
   const { addToast } = useToast();
@@ -33,6 +36,7 @@ export default function QuickPayPage() {
   const [vendorsLoading, setVendorsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<SavedPayment | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const [selectedEvent, setSelectedEvent] = useState("");
   const [selectedVendor, setSelectedVendor] = useState("");
@@ -78,8 +82,26 @@ export default function QuickPayPage() {
 
   function handleReceiptChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) {
-      setReceiptFile(file);
+    if (!file) return;
+
+    const allowed = file.type.startsWith("image/") || file.type === "application/pdf";
+    if (!allowed) {
+      addToast({ title: "Unsupported receipt", description: "Attach an image or PDF receipt.", variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_RECEIPT_SIZE) {
+      addToast({ title: "Receipt too large", description: "Please attach a file under 5 MB.", variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+
+    setConfirming(false);
+    setReceiptFile(file);
+    setReceiptPreview(null);
+
+    if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onloadend = () => setReceiptPreview(reader.result as string);
       reader.readAsDataURL(file);
@@ -88,56 +110,69 @@ export default function QuickPayPage() {
 
   async function handleSave() {
     if (!selectedEvent || !selectedVendor || !amount) return;
+    const paymentAmount = Number(amount);
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      addToast({ title: "Enter a valid amount", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
 
-    const { requireUser } = await import("@/lib/auth");
-    const user = await requireUser();
+    try {
+      const { requireUser } = await import("@/lib/auth");
+      const user = await requireUser();
 
-    const contract = vendors.find((v) => v.vendor_id === selectedVendor);
-    const event = events.find((e) => e.id === selectedEvent);
+      const contract = vendors.find((v) => v.vendor_id === selectedVendor);
+      const event = events.find((e) => e.id === selectedEvent);
 
-    // Upload receipt if provided
-    let receiptUrl: string | null = null;
-    if (receiptFile) {
-      const ext = receiptFile.name.split(".").pop();
-      const path = `receipts/${selectedEvent}/${Date.now()}.${ext}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("receipts")
-        .upload(path, receiptFile);
-      if (uploadData && !uploadError) {
-        const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(path);
-        receiptUrl = urlData?.publicUrl || null;
+      // Upload receipt if provided
+      let receiptUrl: string | null = null;
+      if (receiptFile) {
+        const ext = receiptFile.name.split(".").pop();
+        const path = `receipts/${selectedEvent}/${Date.now()}.${ext}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("receipts")
+          .upload(path, receiptFile);
+        if (uploadError) {
+          addToast({ title: "Receipt upload failed", description: uploadError.message, variant: "destructive" });
+          return;
+        }
+        if (uploadData) {
+          const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(path);
+          receiptUrl = urlData?.publicUrl || null;
+        }
       }
-    }
 
-    const { error } = await supabase.from("ledger").insert({
-      agency_id: user.id,
-      event_id: selectedEvent,
-      vendor_id: selectedVendor,
-      contract_id: contract?.id || null,
-      amount: Number(amount),
-      txn_type: txnType,
-      payment_mode: paymentMode,
-      reference_number: reference || null,
-      notes: notes || null,
-      receipt_url: receiptUrl,
-    });
-
-    if (error) {
-      console.error("[QuickPay] Failed to save payment:", error.message, error);
-      addToast({ title: "Failed to save payment", description: error.message, variant: "destructive" });
-    } else {
-      setSaved({
-        eventName: event?.client_name || "",
-        vendorName: contract?.vendor?.name || "",
-        vendorPhone: contract?.vendor?.phone || null,
-        amount: Number(amount),
-        mode: paymentMode,
-        date: formatDate(new Date().toISOString()),
+      const { error } = await supabase.from("ledger").insert({
+        agency_id: user.id,
+        event_id: selectedEvent,
+        vendor_id: selectedVendor,
+        contract_id: contract?.id || null,
+        amount: paymentAmount,
+        txn_type: txnType,
+        payment_mode: paymentMode,
+        reference_number: reference || null,
+        notes: notes || null,
+        receipt_url: receiptUrl,
       });
-      addToast({ title: "Payment saved!", variant: "success" });
+
+      if (error) {
+        console.error("[QuickPay] Failed to save payment:", error.message, error);
+        addToast({ title: "Failed to save payment", description: error.message, variant: "destructive" });
+      } else {
+        setSaved({
+          eventName: event?.client_name || "",
+          vendorName: contract?.vendor?.name || "",
+          vendorPhone: contract?.vendor?.phone || null,
+          amount: paymentAmount,
+          mode: paymentMode,
+          date: formatDate(new Date().toISOString()),
+        });
+        addToast({ title: "Payment saved!", variant: "success" });
+      }
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   function resetForm() {
@@ -151,6 +186,7 @@ export default function QuickPayPage() {
     setNotes("");
     setReceiptFile(null);
     setReceiptPreview(null);
+    setConfirming(false);
   }
 
   // Success screen
@@ -181,6 +217,10 @@ export default function QuickPayPage() {
     );
   }
 
+  const selectedContract = vendors.find((v) => v.vendor_id === selectedVendor);
+  const selectedEventData = events.find((event) => event.id === selectedEvent);
+  const canReview = Boolean(selectedEvent && selectedVendor && amount && Number(amount) > 0);
+
   return (
     <div className="px-4 pt-4">
       <div className="mb-6 flex items-center gap-3">
@@ -207,7 +247,7 @@ export default function QuickPayPage() {
                 <button
                   key={event.id}
                   type="button"
-                  onClick={() => setSelectedEvent(event.id)}
+                  onClick={() => { setSelectedEvent(event.id); setConfirming(false); }}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-left transition-colors ${
                     selectedEvent === event.id
                       ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900"
@@ -243,7 +283,7 @@ export default function QuickPayPage() {
                   <button
                     key={contract.vendor_id}
                     type="button"
-                    onClick={() => setSelectedVendor(contract.vendor_id)}
+                    onClick={() => { setSelectedVendor(contract.vendor_id); setConfirming(false); }}
                     className={`flex w-full items-center justify-between rounded-md px-3 py-3 text-left transition-colors ${
                       selectedVendor === contract.vendor_id
                         ? "bg-navy-900 text-white dark:bg-navy-100 dark:text-navy-900"
@@ -268,7 +308,7 @@ export default function QuickPayPage() {
               <Label>Amount *</Label>
               <CurrencyInput
                 value={amount}
-                onChange={setAmount}
+                onChange={(value) => { setAmount(value); setConfirming(false); }}
                 placeholder="0"
                 autoFocus
               />
@@ -277,12 +317,12 @@ export default function QuickPayPage() {
             {/* Payment Mode */}
             <div className="space-y-2">
               <Label>Payment Mode</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {PAYMENT_MODES.map((mode) => (
                   <button
                     key={mode.value}
                     type="button"
-                    onClick={() => setPaymentMode(mode.value)}
+                    onClick={() => { setPaymentMode(mode.value); setConfirming(false); }}
                     className={`rounded-lg border-2 px-3 py-3 text-sm font-semibold transition-colors ${
                       paymentMode === mode.value
                         ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
@@ -298,12 +338,12 @@ export default function QuickPayPage() {
             {/* Transaction Type */}
             <div className="space-y-2">
               <Label>Transaction Type</Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {TXN_TYPES.map((type) => (
                   <button
                     key={type.value}
                     type="button"
-                    onClick={() => setTxnType(type.value)}
+                    onClick={() => { setTxnType(type.value); setConfirming(false); }}
                     className={`rounded-lg border-2 px-2 py-2.5 text-xs font-semibold transition-colors ${
                       txnType === type.value
                         ? "border-navy-900 bg-navy-900 text-white dark:border-navy-300 dark:bg-navy-700 dark:text-navy-100"
@@ -323,7 +363,7 @@ export default function QuickPayPage() {
                 id="reference"
                 placeholder="UPI ref / cheque no."
                 value={reference}
-                onChange={(e) => setReference(e.target.value)}
+                onChange={(e) => { setReference(e.target.value); setConfirming(false); }}
               />
             </div>
 
@@ -334,7 +374,7 @@ export default function QuickPayPage() {
                 id="notes"
                 placeholder="Any notes..."
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e) => { setNotes(e.target.value); setConfirming(false); }}
                 rows={2}
               />
             </div>
@@ -360,8 +400,15 @@ export default function QuickPayPage() {
               </label>
               {receiptPreview && (
                 <div className="relative">
-                  <img src={receiptPreview} alt="Receipt" className="max-h-32 rounded-lg object-cover" />
-                  <button onClick={() => { setReceiptFile(null); setReceiptPreview(null); }}
+                  <Image
+                    src={receiptPreview}
+                    alt="Receipt"
+                    width={240}
+                    height={128}
+                    unoptimized
+                    className="max-h-32 w-auto rounded-lg object-cover"
+                  />
+                  <button type="button" onClick={() => { setReceiptFile(null); setReceiptPreview(null); setConfirming(false); }}
                     className="absolute right-1 top-1 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
                     Remove
                   </button>
@@ -370,20 +417,52 @@ export default function QuickPayPage() {
             </div>
 
             {/* Save Button */}
-            <Button
-              onClick={handleSave}
-              variant="success"
-              size="xl"
-              className="w-full"
-              disabled={saving || !amount}
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
+            {confirming ? (
+              <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div>
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">Review Payment</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Confirm these details before saving.</p>
+                </div>
+                <div className="space-y-1.5 text-sm text-navy-700 dark:text-navy-200">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-navy-500">Event</span>
+                    <span className="text-right font-semibold">{selectedEventData?.client_name}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-navy-500">Vendor</span>
+                    <span className="text-right font-semibold">{selectedContract?.vendor?.name}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-navy-500">Amount</span>
+                    <span className="text-right font-bold text-emerald-700">{formatCurrency(Number(amount))}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-navy-500">Type</span>
+                    <span className="text-right font-semibold">{txnType} via {paymentMode}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => setConfirming(false)} disabled={saving}>
+                    Edit
+                  </Button>
+                  <Button onClick={handleSave} variant="success" disabled={saving}>
+                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                onClick={() => setConfirming(true)}
+                variant="success"
+                size="xl"
+                className="w-full"
+                disabled={!canReview}
+              >
                 <Check className="mr-2 h-5 w-5" />
-              )}
-              SAVE PAYMENT
-            </Button>
+                REVIEW PAYMENT
+              </Button>
+            )}
           </>
         )}
       </div>

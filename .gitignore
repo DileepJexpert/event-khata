@@ -33,6 +33,9 @@ yarn-error.log*
 next-env.d.ts
 
 # Android (Capacitor) build artifacts
+android/local.properties
+android/keystore.properties
+android/*.jks
 android/app/build/
 android/.gradle/
 android/build/

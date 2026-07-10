@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
   if (pathname === "/") {
     if (user) {
       const url = request.nextUrl.clone();
-      url.pathname = "/events";
+      url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
     return supabaseResponse; // Show landing page for non-logged-in users
@@ -54,7 +54,7 @@ export async function updateSession(request: NextRequest) {
   // If authenticated and trying to access login
   if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/events";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
@@ -75,7 +75,7 @@ export async function updateSession(request: NextRequest) {
 
     if (!adminUser) {
       const url = request.nextUrl.clone();
-      url.pathname = "/events";
+      url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
   }

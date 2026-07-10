@@ -76,7 +76,7 @@ export default function Home() {
     async function check() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        router.replace("/events");
+        router.replace("/dashboard");
       } else {
         setChecking(false);
       }
