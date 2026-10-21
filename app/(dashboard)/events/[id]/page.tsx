@@ -6,16 +6,43 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VendorPaymentCard } from "@/components/vendor-payment-card";
 import { BudgetDonut } from "@/components/budget-donut";
+import { MobileHeader } from "@/components/mobile-header";
 import {
-  ArrowLeft, ArrowRight, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
-  ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
-  Send, Copy, Save, AlertTriangle, Sparkles, Loader2, X, Lightbulb, Brain, ChevronDown, ChevronUp,
-  Camera, Armchair, UserCheck, TrendingUp,
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  Share2,
+  CalendarDays,
+  MapPin,
+  Phone,
+  Pencil,
+  ListChecks,
+  Users,
+  Clock,
+  CreditCard,
+  PartyPopper,
+  FileText,
+  MessageCircle,
+  Send,
+  Copy,
+  Save,
+  AlertTriangle,
+  Sparkles,
+  Loader2,
+  X,
+  Lightbulb,
+  Brain,
+  Camera,
+  Armchair,
+  UserCheck,
+  TrendingUp,
+  IndianRupee,
+  Receipt,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
@@ -24,9 +51,16 @@ import type { Event, Vendor, Contract, LedgerEntry, SubEvent, Task } from "@/lib
 import { checkAIEnabled, getVendorSuggestion, type VendorSuggestionResponse } from "@/lib/ai";
 
 const TYPE_EMOJI: Record<string, string> = {
-  mehendi: "🌿", sangeet: "🎶", haldi: "💛", wedding: "💍",
-  reception: "🎉", engagement: "💎", cocktail: "🍸",
-  vidaai: "🥺", baraat: "🐴", other: "✨",
+  mehendi: "🌿",
+  sangeet: "🎶",
+  haldi: "💛",
+  wedding: "💍",
+  reception: "🎉",
+  engagement: "💎",
+  cocktail: "🍸",
+  vidaai: "🥺",
+  baraat: "🐴",
+  other: "✨",
 };
 
 export default function EventDetailPage() {
@@ -52,17 +86,37 @@ export default function EventDetailPage() {
   const [templateName, setTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  // Mobile segmented tabs
+  const [activeTab, setActiveTab] = useState<"overview" | "vendors" | "ledger" | "functions" | "tools">("overview");
+
   useEffect(() => {
     loadData();
     checkAIEnabled().then(setAiEnabled);
   }, [eventId]);
 
   async function loadData() {
-    const [eventRes, contractsRes, ledgerRes, subEventsRes, tasksRes, guestsRes, expensesRes] = await Promise.all([
+    const [
+      eventRes,
+      contractsRes,
+      ledgerRes,
+      subEventsRes,
+      tasksRes,
+      guestsRes,
+      expensesRes,
+    ] = await Promise.all([
       supabase.from("events").select("*").eq("id", eventId).single(),
       supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
-      supabase.from("ledger").select("*, vendor:vendors(*)").eq("event_id", eventId).order("recorded_at", { ascending: false }),
-      supabase.from("sub_events").select("*").eq("event_id", eventId).order("date", { ascending: true, nullsFirst: false }).order("sort_order"),
+      supabase
+        .from("ledger")
+        .select("*, vendor:vendors(*)")
+        .eq("event_id", eventId)
+        .order("recorded_at", { ascending: false }),
+      supabase
+        .from("sub_events")
+        .select("*")
+        .eq("event_id", eventId)
+        .order("date", { ascending: true, nullsFirst: false })
+        .order("sort_order"),
       supabase.from("tasks").select("*").eq("event_id", eventId),
       supabase.from("guests").select("id", { count: "exact" }).eq("event_id", eventId),
       supabase.from("expenses").select("amount").eq("event_id", eventId),
@@ -101,56 +155,60 @@ export default function EventDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-4 px-4 pt-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-      </div>
-    );
+  function shareEventSummary() {
+    if (!event) return;
+    const lines = [
+      `*Event Summary: ${event.client_name}*`,
+      `Type: ${event.event_type}`,
+      event.event_date ? `Date: ${formatDate(event.event_date)}` : null,
+      event.venue ? `Venue: ${event.venue}` : null,
+      event.total_budget ? `Budget: ${formatCurrency(Number(event.total_budget))}` : null,
+      `Total Spent: ${formatCurrency(totalSpent)}`,
+      "",
+      `*Vendors (${contracts.length}):*`,
+      ...contracts.map((c) => {
+        const paid = vendorPayments.get(c.vendor_id) || 0;
+        return `• ${c.vendor.name} (${(c.vendor.category || "").replace("_", " ")}): ${formatCurrency(paid)} / ${formatCurrency(Number(c.agreed_amount))}`;
+      }),
+    ].filter(Boolean);
+
+    if (subEvents.length > 0) {
+      lines.push("", `*Functions (${subEvents.length}):*`);
+      subEvents.forEach((se) => {
+        lines.push(`• ${se.name}${se.date ? ` - ${formatDate(se.date)}` : ""}${se.venue ? ` @ ${se.venue}` : ""}`);
+      });
+    }
+
+    lines.push("", "_Generated by EventKhata_");
+    const url = `https://wa.me/${event.client_phone?.replace(/\D/g, "") || ""}?text=${encodeURIComponent(lines.join("\n"))}`;
+    window.open(url, "_blank");
   }
-
-  if (!event) {
-    return (
-      <div className="px-4 pt-4 text-center">
-        <p>Event not found.</p>
-        <Button asChild className="mt-4">
-          <Link href="/events">Back to Events</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  const totalSpent = ledgerEntries.reduce((sum, e) => {
-    return e.txn_type === "REFUND" ? sum - Number(e.amount) : sum + Number(e.amount);
-  }, 0);
-
-  const totalAgreed = contracts.reduce((sum, c) => sum + Number(c.agreed_amount), 0);
 
   async function duplicateEvent() {
     if (!event) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data: newEvent, error } = await supabase.from("events").insert({
-      agency_id: event.agency_id,
-      client_name: `${event.client_name} (Copy)`,
-      client_phone: event.client_phone,
-      client_email: event.client_email,
-      event_type: event.event_type,
-      total_budget: event.total_budget,
-      venue: event.venue,
-      notes: event.notes,
-      status: "active",
-    }).select().single();
+    const { data: newEvent, error } = await supabase
+      .from("events")
+      .insert({
+        agency_id: event.agency_id,
+        client_name: `${event.client_name} (Copy)`,
+        client_phone: event.client_phone,
+        client_email: event.client_email,
+        event_type: event.event_type,
+        total_budget: event.total_budget,
+        venue: event.venue,
+        notes: event.notes,
+        status: "active",
+      })
+      .select()
+      .single();
 
     if (error || !newEvent) {
       addToast({ title: "Failed to duplicate", description: error?.message, variant: "destructive" });
       return;
     }
 
-    // Duplicate sub-events
     if (subEvents.length > 0) {
       await supabase.from("sub_events").insert(
         subEvents.map((se) => ({
@@ -165,7 +223,6 @@ export default function EventDetailPage() {
       );
     }
 
-    // Duplicate tasks
     if (tasks.length > 0) {
       await supabase.from("tasks").insert(
         tasks.map((t) => ({
@@ -198,63 +255,73 @@ export default function EventDetailPage() {
     const eventDate = event.event_date ? new Date(event.event_date) : null;
     const templateTasks = tasks.map((t) => {
       let daysBefore = 30;
-      if (eventDate && t.due_date) {
-        const diff = Math.round((eventDate.getTime() - new Date(t.due_date).getTime()) / (1000 * 60 * 60 * 24));
-        daysBefore = diff > 0 ? diff : 0;
+      if (t.due_date && eventDate) {
+        const taskDue = new Date(t.due_date);
+        const diffMs = eventDate.getTime() - taskDue.getTime();
+        daysBefore = Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
       }
-      return { title: t.title, priority: t.priority, days_before: daysBefore };
+      return {
+        title: t.title,
+        description: t.description,
+        priority: t.priority,
+        days_before_event: daysBefore,
+        category: "general",
+      };
     });
+
+    const templateVendors = contracts.map((c) => ({
+      category: c.vendor.category,
+      typical_budget_percentage:
+        event.total_budget && Number(event.total_budget) > 0
+          ? Math.round((Number(c.agreed_amount) / Number(event.total_budget)) * 100)
+          : null,
+      is_essential: true,
+      notes: null,
+    }));
 
     const { error } = await supabase.from("event_templates").insert({
-      agency_id: event.agency_id,
       name,
       event_type: event.event_type,
-      is_system: false,
-      sub_events: subEvents.map((se) => ({ name: se.name, type: se.type })),
+      description: `Template based on ${event.client_name}`,
       tasks: templateTasks,
-      vendor_categories: Array.from(new Set(contracts.map((c) => c.vendor.category).filter(Boolean))),
-      budget_split: {},
+      vendor_checklist: templateVendors,
     });
 
-    if (error) addToast({ title: "Failed to save template", description: error.message, variant: "destructive" });
-    else {
-      addToast({ title: "Saved as template!", description: "Reuse it when creating new events.", variant: "success" });
+    setSavingTemplate(false);
+    if (error) {
+      addToast({ title: "Failed to save template", description: error.message, variant: "destructive" });
+    } else {
+      addToast({ title: "Template saved!", variant: "success" });
       setShowTemplateDialog(false);
     }
-    setSavingTemplate(false);
   }
 
-  function shareEventSummary() {
-    if (!event) return;
-    const lines = [
-      `*${event.client_name} - Event Summary*`,
-      `Type: ${event.event_type}`,
-      event.event_date ? `Date: ${formatDate(event.event_date)}` : "",
-      event.venue ? `Venue: ${event.venue}` : "",
-      "",
-      `*Budget:* ${event.total_budget ? formatCurrency(Number(event.total_budget)) : "Not set"}`,
-      `*Total Agreed:* ${formatCurrency(totalAgreed)}`,
-      `*Total Paid:* ${formatCurrency(totalSpent)}`,
-      `*Outstanding:* ${formatCurrency(Math.max(0, totalAgreed - totalSpent))}`,
-      "",
-      `*Vendors (${contracts.length}):*`,
-      ...contracts.map((c) => {
-        const paid = vendorPayments.get(c.vendor_id) || 0;
-        return `• ${c.vendor.name} (${(c.vendor.category || "").replace("_", " ")}): ${formatCurrency(paid)} / ${formatCurrency(Number(c.agreed_amount))}`;
-      }),
-    ].filter(Boolean);
-
-    if (subEvents.length > 0) {
-      lines.push("", `*Functions (${subEvents.length}):*`);
-      subEvents.forEach((se) => {
-        lines.push(`• ${se.name}${se.date ? ` - ${formatDate(se.date)}` : ""}${se.venue ? ` @ ${se.venue}` : ""}`);
-      });
-    }
-
-    lines.push("", "_Generated by EventKhata_");
-    const url = `https://wa.me/${event.client_phone?.replace(/\D/g, "") || ""}?text=${encodeURIComponent(lines.join("\n"))}`;
-    window.open(url, "_blank");
+  if (loading) {
+    return (
+      <div className="space-y-4 px-4 pt-4">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
+        <Skeleton className="h-28 w-full rounded-2xl" />
+      </div>
+    );
   }
+
+  if (!event) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-navy-500 text-sm">Event not found.</p>
+        <Button asChild className="mt-4 rounded-xl">
+          <Link href="/events">Back to Events</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const totalSpent = ledgerEntries.reduce((sum, e) => {
+    return e.txn_type === "REFUND" ? sum - Number(e.amount) : sum + Number(e.amount);
+  }, 0);
+
+  const totalAgreed = contracts.reduce((sum, c) => sum + Number(c.agreed_amount), 0);
 
   // Group payments by vendor
   const vendorPayments = new Map<string, number>();
@@ -266,493 +333,580 @@ export default function EventDetailPage() {
     );
   });
 
+  const emoji = TYPE_EMOJI[event.event_type?.toLowerCase()] || "✨";
+  const dLeft = event.event_date ? daysUntil(event.event_date) : null;
+
   return (
-    <div className="px-4 pt-4">
-      {/* Header */}
-      <div className="mb-4 flex items-center gap-3">
-        <Link href="/events" className="rounded-full p-2 hover:bg-navy-100">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">{event.client_name}</h1>
-          <div className="flex items-center gap-2">
-            <Badge variant={event.status === "active" ? "success" : "secondary"}>
-              {event.status}
-            </Badge>
-            <span className="text-sm capitalize text-navy-500">{event.event_type}</span>
+    <div className="pb-36">
+      <MobileHeader
+        title={event.client_name}
+        subtitle={`${emoji} ${event.event_type} ${event.venue ? `· ${event.venue}` : ""}`}
+        showBack
+        backHref="/events"
+        rightAction={
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={shareEventSummary}
+              title="Share Summary via WhatsApp"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-emerald-600 hover:bg-emerald-50 active:scale-95 dark:text-emerald-400 dark:hover:bg-navy-800"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+            <Link
+              href={`/events/${eventId}/edit`}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 active:scale-95 dark:text-navy-300 dark:hover:bg-navy-800"
+              title="Edit Event"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+            <Link
+              href={`/events/${eventId}/share`}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 active:scale-95 dark:text-navy-300 dark:hover:bg-navy-800"
+              title="Client Portal Link"
+            >
+              <Share2 className="h-4 w-4" />
+            </Link>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Event Info */}
-      <div className="mb-4 flex flex-wrap gap-3 text-sm text-navy-500">
-        {event.event_date && (
-          <span className="flex items-center gap-1">
-            <CalendarDays className="h-4 w-4" /> {formatDate(event.event_date)}
-          </span>
-        )}
-        {event.venue && (
-          <span className="flex items-center gap-1">
-            <MapPin className="h-4 w-4" /> {event.venue}
-          </span>
-        )}
-        {event.client_phone && (
-          <a href={`tel:${event.client_phone}`} className="flex items-center gap-1 text-navy-700">
-            <Phone className="h-4 w-4" /> {event.client_phone}
-          </a>
-        )}
-      </div>
-
-      {/* Countdown */}
-      {event.event_date && event.status === "active" && (() => {
-        const d = daysUntil(event.event_date);
-        if (d < 0) return null;
-        return (
-          <div className="mb-4 flex items-center gap-4 rounded-xl bg-gradient-to-r from-navy-800 to-navy-700 p-4 text-white dark:from-navy-700 dark:to-navy-600">
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-2xl font-extrabold">
-              {d === 0 ? "!" : d}
-            </div>
+      {/* Hero Client & Countdown Card */}
+      <div className="p-4 pb-0 space-y-3">
+        <div className="rounded-2xl border border-navy-100 bg-white p-4 shadow-xs dark:border-navy-800 dark:bg-navy-900">
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-lg font-bold">{d === 0 ? "Event is TODAY!" : d === 1 ? "Tomorrow!" : `${d} days to go`}</p>
-              <p className="text-sm text-navy-300">{formatDate(event.event_date)} · {event.venue || event.event_type}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{emoji}</span>
+                <h2 className="text-base font-bold text-navy-900 dark:text-navy-100">
+                  {event.client_name}
+                </h2>
+                <Badge variant={event.status === "active" ? "success" : "secondary"} className="text-[10px]">
+                  {event.status}
+                </Badge>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-navy-500 dark:text-navy-400">
+                {event.event_date && (
+                  <span className="flex items-center gap-1 font-medium">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {formatDate(event.event_date)}
+                  </span>
+                )}
+                {event.venue && (
+                  <span className="flex items-center gap-1 truncate max-w-[140px]">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span className="truncate">{event.venue}</span>
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })()}
 
-      {/* Executive Financial Ribbon */}
-      <div className="mb-4 overflow-hidden rounded-2xl border border-navy-100 bg-white p-4 shadow-sm dark:border-navy-800 dark:bg-navy-900">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-navy-500 dark:text-navy-400">
-            Financial Snapshot
-          </span>
-          <Link
-            href={`/events/${eventId}/pnl`}
-            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-          >
-            Detailed P&L <ArrowRight className="h-3 w-3" />
-          </Link>
+            {dLeft !== null && dLeft >= 0 && event.status === "active" && (
+              <div className="rounded-xl bg-navy-50 px-3 py-1.5 text-center dark:bg-navy-800">
+                <span className="block text-sm font-black text-emerald-600 dark:text-emerald-400">
+                  {dLeft === 0 ? "TODAY" : `${dLeft}d`}
+                </span>
+                <span className="text-[9px] uppercase font-bold text-navy-400">
+                  {dLeft === 0 ? "Event" : "to go"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Client Quick Call / WhatsApp Bar */}
+          {event.client_phone && (
+            <div className="mt-3 flex items-center justify-between border-t border-navy-50 pt-2.5 dark:border-navy-800">
+              <span className="text-xs text-navy-500 font-medium">
+                Client: <strong>{event.client_phone}</strong>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={`tel:${event.client_phone}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-50 text-navy-600 hover:bg-navy-100 active:scale-95 dark:bg-navy-800 dark:text-navy-300"
+                  title="Call Client"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                </a>
+                <a
+                  href={`https://wa.me/${event.client_phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 active:scale-95 dark:bg-emerald-950/40 dark:text-emerald-400"
+                  title="WhatsApp Client"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-xl bg-navy-50/70 p-3 dark:bg-navy-800/60">
-            <p className="text-[11px] font-medium text-navy-500 dark:text-navy-400">Client Budget</p>
-            <p className="mt-0.5 truncate text-base font-bold text-navy-900 dark:text-navy-100">
-              {event.total_budget ? formatCurrency(Number(event.total_budget)) : "Not set"}
-            </p>
+        {/* Executive Financial Snapshot */}
+        <div className="overflow-hidden rounded-2xl border border-navy-100 bg-white p-3.5 shadow-xs dark:border-navy-800 dark:bg-navy-900">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-navy-400 dark:text-navy-500">
+              Financial Khata
+            </span>
+            <Link
+              href={`/events/${eventId}/pnl`}
+              className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400"
+            >
+              Detailed P&L <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
 
-          <div className="rounded-xl bg-blue-50/70 p-3 dark:bg-blue-950/30">
-            <p className="text-[11px] font-medium text-blue-700 dark:text-blue-300">Vendor Committed</p>
-            <p className="mt-0.5 truncate text-base font-bold text-blue-900 dark:text-blue-100">
-              {formatCurrency(totalAgreed)}
-            </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-navy-50/70 p-2.5 dark:bg-navy-800/60">
+              <p className="text-[10px] font-medium text-navy-500 dark:text-navy-400">Client Budget</p>
+              <p className="truncate text-sm font-black text-navy-900 dark:text-navy-100">
+                {event.total_budget ? formatCurrency(Number(event.total_budget)) : "Not set"}
+              </p>
+            </div>
+            <div className="rounded-xl bg-blue-50/70 p-2.5 dark:bg-blue-950/30">
+              <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300">Committed</p>
+              <p className="truncate text-sm font-black text-blue-900 dark:text-blue-100">
+                {formatCurrency(totalAgreed)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-50/70 p-2.5 dark:bg-emerald-950/30">
+              <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">Paid to Date</p>
+              <p className="truncate text-sm font-black text-emerald-900 dark:text-emerald-100">
+                {formatCurrency(totalSpent)}
+              </p>
+            </div>
+            <div className="rounded-xl bg-amber-50/70 p-2.5 dark:bg-amber-950/30">
+              <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300">Remaining Balance</p>
+              <p className="truncate text-sm font-black text-amber-900 dark:text-amber-100">
+                {formatCurrency(Math.max(0, totalAgreed - totalSpent))}
+              </p>
+            </div>
           </div>
 
-          <div className="rounded-xl bg-emerald-50/70 p-3 dark:bg-emerald-950/30">
-            <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Paid to Date</p>
-            <p className="mt-0.5 truncate text-base font-bold text-emerald-900 dark:text-emerald-100">
-              {formatCurrency(totalSpent)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-amber-50/70 p-3 dark:bg-amber-950/30">
-            <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Balance Due</p>
-            <p className="mt-0.5 truncate text-base font-bold text-amber-900 dark:text-amber-100">
-              {formatCurrency(Math.max(0, totalAgreed - totalSpent))}
-            </p>
-          </div>
+          {totalAgreed > 0 && (
+            <div className="mt-2.5 space-y-1">
+              <div className="flex h-2 w-full overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
+                <div
+                  style={{ width: `${Math.min(100, (totalSpent / totalAgreed) * 100)}%` }}
+                  className="bg-emerald-500 transition-all"
+                />
+                <div
+                  style={{
+                    width: `${Math.max(0, Math.min(100 - (totalSpent / totalAgreed) * 100, ((totalAgreed - totalSpent) / totalAgreed) * 100))}%`,
+                  }}
+                  className="bg-amber-400 transition-all"
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-navy-500 dark:text-navy-400">
+                <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {Math.round((totalSpent / totalAgreed) * 100)}% Paid
+                </span>
+                <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  {Math.round((Math.max(0, totalAgreed - totalSpent) / totalAgreed) * 100)}% Due
+                </span>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
 
-        {totalAgreed > 0 && (
-          <div className="mt-3.5 space-y-1.5">
-            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
-              <div
-                style={{ width: `${Math.min(100, (totalSpent / totalAgreed) * 100)}%` }}
-                className="bg-emerald-500 transition-all"
-              />
-              <div
-                style={{ width: `${Math.max(0, Math.min(100 - (totalSpent / totalAgreed) * 100, ((totalAgreed - totalSpent) / totalAgreed) * 100))}%` }}
-                className="bg-amber-400 transition-all"
-              />
+      {/* Segmented Sticky Mobile Tab Pills */}
+      <div className="sticky top-[53px] z-20 mt-3 border-y border-navy-100 bg-white/95 px-4 py-2 backdrop-blur-md dark:border-navy-800 dark:bg-navy-950/95">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "vendors", label: `Vendors (${contracts.length})` },
+            { id: "ledger", label: `Ledger (${ledgerEntries.length})` },
+            { id: "functions", label: `Functions (${subEvents.length})` },
+            { id: "tools", label: "All Tools" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
+                activeTab === tab.id
+                  ? "bg-navy-900 text-white shadow-xs dark:bg-navy-100 dark:text-navy-900"
+                  : "bg-navy-50 text-navy-600 hover:bg-navy-100 dark:bg-navy-900 dark:text-navy-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Contents */}
+      <div className="p-4 space-y-4">
+        {/* TAB 1: OVERVIEW */}
+        {activeTab === "overview" && (
+          <div className="space-y-4">
+            {/* Budget Donut */}
+            {event.total_budget && (
+              <Card className="rounded-2xl border-navy-100 bg-white shadow-xs dark:border-navy-800 dark:bg-navy-900">
+                <CardContent className="p-4">
+                  <BudgetDonut totalBudget={Number(event.total_budget)} totalSpent={totalSpent} />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Event Readiness */}
+            {event.status === "active" && (
+              <Card className="rounded-2xl border-navy-100 bg-white shadow-xs dark:border-navy-800 dark:bg-navy-900">
+                <CardContent className="p-4">
+                  <EventProgress
+                    items={[
+                      { label: "Event date set", done: !!event.event_date },
+                      { label: "Budget defined", done: !!event.total_budget && event.total_budget > 0 },
+                      { label: "Venue confirmed", done: !!event.venue },
+                      { label: "Vendors booked", done: contracts.length > 0 },
+                      { label: "Sub-events planned", done: subEvents.length > 0 },
+                      { label: "Guest list started", done: guestCount > 0 },
+                      {
+                        label: "Tasks created",
+                        done: tasks.length > 0,
+                        warning: tasks.length > 0 && tasks.some((t) => t.status === "pending"),
+                      },
+                      {
+                        label: "All tasks completed",
+                        done: tasks.length > 0 && tasks.every((t) => t.status === "completed"),
+                      },
+                    ]}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Notes */}
+            {event.notes && (
+              <div className="rounded-2xl bg-amber-50 p-4 border border-amber-200/60 dark:bg-amber-950/30 dark:border-amber-900/40">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Event Notes</p>
+                <p className="mt-1 text-xs text-amber-900 dark:text-amber-200 whitespace-pre-wrap">{event.notes}</p>
+              </div>
+            )}
+
+            {/* Secondary Actions */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={duplicateEvent}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-navy-100 bg-white p-3 text-xs font-bold text-navy-700 shadow-xs active:scale-95 dark:border-navy-800 dark:bg-navy-900 dark:text-navy-200"
+              >
+                <Copy className="h-4 w-4" /> Duplicate
+              </button>
+              <button
+                type="button"
+                onClick={openTemplateDialog}
+                className="flex items-center justify-center gap-2 rounded-2xl border border-navy-100 bg-white p-3 text-xs font-bold text-navy-700 shadow-xs active:scale-95 dark:border-navy-800 dark:bg-navy-900 dark:text-navy-200"
+              >
+                <Save className="h-4 w-4" /> Save Template
+              </button>
             </div>
-            <div className="flex justify-between text-[11px] text-navy-500 dark:text-navy-400">
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {Math.round((totalSpent / totalAgreed) * 100)}% Paid
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-amber-400" />
-                {Math.round((Math.max(0, totalAgreed - totalSpent) / totalAgreed) * 100)}% Pending
-              </span>
-            </div>
+
+            {aiEnabled && (
+              <button
+                type="button"
+                onClick={handleAiTips}
+                disabled={aiLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 p-3.5 text-xs font-bold text-white shadow-md transition active:scale-98"
+              >
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {aiLoading ? "Analyzing Event..." : "Get AI Vendor & Budget Advice"}
+              </button>
+            )}
           </div>
         )}
-      </div>
 
-      {/* Budget Summary */}
-      {event.total_budget && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <BudgetDonut totalBudget={Number(event.total_budget)} totalSpent={totalSpent} />
-          </CardContent>
-        </Card>
-      )}
+        {/* TAB 2: VENDORS */}
+        {activeTab === "vendors" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-navy-400">
+                Assigned Vendors ({contracts.length})
+              </h3>
+              <Link
+                href={`/events/${eventId}/add-vendor`}
+                className="flex items-center gap-1 text-xs font-bold text-navy-900 dark:text-navy-100"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Vendor
+              </Link>
+            </div>
 
-      {/* Budget Alert */}
-      {event.total_budget && Number(event.total_budget) > 0 &&
-        (totalSpent / Number(event.total_budget)) * 100 >= (event.budget_alert_percent ?? 80) && (
-        <div className={`mb-4 flex items-center gap-3 rounded-xl p-3 ${
-          totalSpent > Number(event.total_budget) ? "bg-red-50 dark:bg-red-900/20" : "bg-amber-50 dark:bg-amber-900/20"
-        }`}>
-          <AlertTriangle className={`h-5 w-5 ${totalSpent > Number(event.total_budget) ? "text-red-600" : "text-amber-600"}`} />
-          <span className={`text-sm font-medium ${totalSpent > Number(event.total_budget) ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
-            {totalSpent > Number(event.total_budget)
-              ? `Over budget by ${formatCurrency(totalSpent - Number(event.total_budget))}`
-              : `${Math.round((totalSpent / Number(event.total_budget)) * 100)}% of budget spent`}
-          </span>
-        </div>
-      )}
+            {contracts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-navy-200 p-8 text-center dark:border-navy-800">
+                <Users className="mx-auto h-8 w-8 text-navy-400" />
+                <p className="mt-2 text-xs font-medium text-navy-500">No vendors booked for this event yet.</p>
+                <Button asChild size="sm" className="mt-3 rounded-xl">
+                  <Link href={`/events/${eventId}/add-vendor`}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Book First Vendor
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              contracts.map((contract) => {
+                const paid = vendorPayments.get(contract.vendor_id) || 0;
+                const agreed = Number(contract.agreed_amount);
+                const balance = Math.max(0, agreed - paid);
 
-      {/* Quick Actions */}
-      <div className="mb-4 flex gap-2">
-        <Button asChild className="flex-1" variant="outline">
-          <Link href={`/events/${eventId}/add-vendor`}>
-            <Plus className="mr-2 h-4 w-4" /> Add Vendor
-          </Link>
-        </Button>
-        <Button variant="outline" onClick={shareEventSummary} title="Share summary on WhatsApp" aria-label="Share summary on WhatsApp">
-          <Send className="h-4 w-4" />
-        </Button>
-        <Button asChild variant="outline" aria-label="Edit event">
-          <Link href={`/events/${eventId}/edit`}>
-            <Pencil className="h-4 w-4" />
-          </Link>
-        </Button>
-        <Button asChild variant="outline" aria-label="Open public share page">
-          <Link href={`/events/${eventId}/share`}>
-            <Share2 className="h-4 w-4" />
-          </Link>
-        </Button>
-      </div>
+                return (
+                  <div
+                    key={contract.id}
+                    className="rounded-2xl border border-navy-100 bg-white p-3.5 shadow-xs dark:border-navy-800 dark:bg-navy-900"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-navy-900 dark:text-navy-100">
+                          {contract.vendor.name}
+                        </h4>
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          <Badge variant="secondary" className="text-[10px] capitalize">
+                            {contract.vendor.category?.replace("_", " ")}
+                          </Badge>
+                          {contract.vendor.phone && (
+                            <span className="text-[11px] text-navy-400">{contract.vendor.phone}</span>
+                          )}
+                        </div>
+                      </div>
 
-      {/* Financial Summary */}
-      {totalAgreed > 0 && (
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm dark:bg-navy-900">
-            <p className="text-[10px] text-navy-500">Agreed</p>
-            <p className="text-sm font-bold text-navy-900 dark:text-navy-100">{formatCurrency(totalAgreed)}</p>
-          </div>
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm dark:bg-navy-900">
-            <p className="text-[10px] text-navy-500">Paid</p>
-            <p className="text-sm font-bold text-emerald-600">{formatCurrency(totalSpent)}</p>
-          </div>
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm dark:bg-navy-900">
-            <p className="text-[10px] text-navy-500">Pending</p>
-            <p className="text-sm font-bold text-amber-600">{formatCurrency(Math.max(0, totalAgreed - totalSpent))}</p>
-          </div>
-        </div>
-      )}
+                      <div className="text-right">
+                        <p className="text-[10px] text-navy-400">Balance Due</p>
+                        <p className="text-sm font-black text-amber-600 dark:text-amber-400">
+                          {formatCurrency(balance)}
+                        </p>
+                      </div>
+                    </div>
 
-      {/* Misc expenses link */}
-      {totalExpenses > 0 && (
-        <Link href="/expenses" className="mb-4 flex items-center justify-between rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <span className="flex items-center gap-2 text-sm text-navy-600 dark:text-navy-300">
-            <FileText className="h-4 w-4" /> Misc expenses
-          </span>
-          <span className="font-bold text-navy-900 dark:text-navy-100">{formatCurrency(totalExpenses)}</span>
-        </Link>
-      )}
-
-      {/* Event Readiness */}
-      {event.status === "active" && (
-        <Card className="mb-4">
-          <CardContent className="p-4">
-            <EventProgress
-              items={[
-                { label: "Event date set", done: !!event.event_date },
-                { label: "Budget defined", done: !!event.total_budget && event.total_budget > 0 },
-                { label: "Venue confirmed", done: !!event.venue },
-                { label: "Vendors booked", done: contracts.length > 0 },
-                { label: "Sub-events planned", done: subEvents.length > 0 },
-                { label: "Guest list started", done: guestCount > 0 },
-                { label: "Tasks created", done: tasks.length > 0, warning: tasks.length > 0 && tasks.some((t) => t.status === "pending") },
-                { label: "All tasks completed", done: tasks.length > 0 && tasks.every((t) => t.status === "completed") },
-              ]}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Feature Grid */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <Link href={`/events/${eventId}/sub-events`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <PartyPopper className="h-5 w-5 text-pink-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Functions</span>
-        </Link>
-        <Link href={`/events/${eventId}/tasks`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <ListChecks className="h-5 w-5 text-blue-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Checklist</span>
-        </Link>
-        <Link href={`/events/${eventId}/guests`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <Users className="h-5 w-5 text-purple-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Guests</span>
-        </Link>
-        <Link href={`/events/${eventId}/timeline`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <Clock className="h-5 w-5 text-amber-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Timeline</span>
-        </Link>
-        <Link href={`/events/${eventId}/payment-schedule`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <CreditCard className="h-5 w-5 text-emerald-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Payments</span>
-        </Link>
-        <Link href={`/events/${eventId}/documents`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <FileText className="h-5 w-5 text-navy-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Documents</span>
-        </Link>
-        <Link href={`/events/${eventId}/communication`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <MessageCircle className="h-5 w-5 text-teal-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Comms</span>
-        </Link>
-        <Link href={`/events/${eventId}/invite`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <Send className="h-5 w-5 text-rose-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">E-Invite</span>
-        </Link>
-        <Link href={`/events/${eventId}/gallery`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <Camera className="h-5 w-5 text-indigo-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Gallery</span>
-        </Link>
-        <Link href={`/events/${eventId}/seating`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <Armchair className="h-5 w-5 text-orange-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Seating</span>
-        </Link>
-        <Link href={`/events/${eventId}/checkin`} className="flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <UserCheck className="h-5 w-5 text-green-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">Check-in</span>
-        </Link>
-        <Link href={`/events/${eventId}/pnl`} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-          <TrendingUp className="h-5 w-5 text-lime-600" />
-          <span className="text-[10px] font-medium text-navy-700 dark:text-navy-300">P&L</span>
-        </Link>
-      </div>
-
-      {/* Multi-Day Functions */}
-      {subEvents.length > 0 && (
-        <div className="mb-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Functions ({subEvents.length})</h2>
-            <Link href={`/events/${eventId}/sub-events`} className="text-sm font-medium text-navy-600">View All</Link>
-          </div>
-          <div className="space-y-2">
-            {subEvents.slice(0, 5).map((se) => {
-              const dLeft = se.date ? daysUntil(se.date) : null;
-              return (
-                <Link key={se.id} href={`/events/${eventId}/sub-events/${se.id}`}
-                  className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-navy-900">
-                  <span className="text-lg">{TYPE_EMOJI[se.type] || "✨"}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-navy-900 dark:text-navy-100">{se.name}</p>
-                    <div className="flex gap-2 text-xs text-navy-500">
-                      {se.date && <span>{formatDate(se.date)}</span>}
-                      {se.start_time && <span>{formatTime(se.start_time)}</span>}
-                      {se.venue && <span>{se.venue}</span>}
+                    <div className="mt-2.5 flex items-center justify-between border-t border-navy-50 pt-2 text-xs text-navy-500 dark:border-navy-800">
+                      <span>Agreed: <strong>{formatCurrency(agreed)}</strong></span>
+                      <span>Paid: <strong className="text-emerald-600">{formatCurrency(paid)}</strong></span>
+                      <Link
+                        href={`/pay?eventId=${eventId}&vendorId=${contract.vendor_id}`}
+                        className="rounded-xl bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 active:scale-95 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      >
+                        + Pay
+                      </Link>
                     </div>
                   </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: LEDGER */}
+        {activeTab === "ledger" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-navy-400">
+                Payment History ({ledgerEntries.length})
+              </h3>
+              <Link
+                href={`/pay?eventId=${eventId}`}
+                className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"
+              >
+                <Plus className="h-3.5 w-3.5" /> Log Payment
+              </Link>
+            </div>
+
+            {ledgerEntries.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-navy-200 p-8 text-center dark:border-navy-800">
+                <Receipt className="mx-auto h-8 w-8 text-navy-400" />
+                <p className="mt-2 text-xs font-medium text-navy-500">No payments recorded for this event yet.</p>
+                <Button asChild size="sm" variant="success" className="mt-3 rounded-xl font-bold">
+                  <Link href={`/pay?eventId=${eventId}`}>
+                    <IndianRupee className="mr-1 h-3.5 w-3.5" /> Record First Payment
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              ledgerEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between rounded-2xl border border-navy-100 bg-white p-3 shadow-xs dark:border-navy-800 dark:bg-navy-900"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-navy-900 dark:text-navy-100">
+                      {(entry.vendor as any)?.name || "Vendor"}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-navy-400">
+                      <span className="font-semibold uppercase">{entry.payment_mode}</span>
+                      <span>·</span>
+                      <span>{entry.txn_type}</span>
+                      <span>·</span>
+                      <span>{formatDate(entry.recorded_at)}</span>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-sm font-black flex-shrink-0 ${
+                      entry.txn_type === "REFUND"
+                        ? "text-red-500"
+                        : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {entry.txn_type === "REFUND" ? "-" : "+"}
+                    {formatCurrency(Number(entry.amount))}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: FUNCTIONS */}
+        {activeTab === "functions" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-navy-400">
+                Multi-Day Functions ({subEvents.length})
+              </h3>
+              <Link
+                href={`/events/${eventId}/sub-events`}
+                className="text-xs font-bold text-navy-900 dark:text-navy-100"
+              >
+                Manage All →
+              </Link>
+            </div>
+
+            {subEvents.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-navy-200 p-8 text-center dark:border-navy-800">
+                <PartyPopper className="mx-auto h-8 w-8 text-navy-400" />
+                <p className="mt-2 text-xs font-medium text-navy-500">No sub-events planned (Mehendi, Sangeet, Haldi).</p>
+                <Button asChild size="sm" className="mt-3 rounded-xl">
+                  <Link href={`/events/${eventId}/sub-events`}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Add Function
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              subEvents.map((se) => (
+                <Link
+                  key={se.id}
+                  href={`/events/${eventId}/sub-events/${se.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-navy-100 bg-white p-3 shadow-xs transition active:scale-98 dark:border-navy-800 dark:bg-navy-900"
+                >
+                  <span className="text-xl flex-shrink-0">{TYPE_EMOJI[se.type] || "✨"}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-xs text-navy-900 dark:text-navy-100">
+                      {se.name}
+                    </p>
+                    <p className="truncate text-[10px] text-navy-400">
+                      {se.date ? formatDate(se.date) : "Date TBD"}
+                      {se.start_time ? ` · ${formatTime(se.start_time)}` : ""}
+                      {se.venue ? ` · ${se.venue}` : ""}
+                    </p>
+                  </div>
                   {se.budget && (
-                    <span className="text-xs font-bold text-navy-700">{formatCurrency(Number(se.budget))}</span>
-                  )}
-                  {dLeft !== null && dLeft >= 0 && dLeft <= 14 && (
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      dLeft <= 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                    }`}>
-                      {dLeft === 0 ? "Today" : `${dLeft}d`}
+                    <span className="text-xs font-bold text-navy-700 dark:text-navy-300">
+                      {formatCurrency(Number(se.budget))}
                     </span>
                   )}
                 </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Vendors */}
-      {contracts.length > 0 && (
-        <div className="mb-4">
-          <h2 className="mb-3 text-lg font-semibold">Vendors ({contracts.length})</h2>
-          <div className="space-y-3">
-            {contracts.map((contract) => (
-              <VendorPaymentCard
-                key={contract.id}
-                vendor={contract.vendor}
-                agreedAmount={Number(contract.agreed_amount)}
-                totalPaid={vendorPayments.get(contract.vendor_id) || 0}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Notes */}
-      {event.notes && (
-        <div className="mb-4 rounded-xl bg-amber-50 p-4">
-          <p className="text-xs font-semibold text-amber-700">Notes</p>
-          <p className="mt-1 text-sm text-amber-900 whitespace-pre-wrap">{event.notes}</p>
-        </div>
-      )}
-
-      {/* More Actions */}
-      <div className="mb-4 space-y-2">
-        <button
-          onClick={duplicateEvent}
-          className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50 dark:bg-navy-900 dark:text-navy-300 dark:hover:bg-navy-800"
-        >
-          <Copy className="h-4 w-4" />
-          <span>Duplicate this event</span>
-        </button>
-        <button
-          onClick={openTemplateDialog}
-          className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-sm text-navy-600 shadow-sm hover:bg-navy-50 dark:bg-navy-900 dark:text-navy-300 dark:hover:bg-navy-800"
-        >
-          <Save className="h-4 w-4" />
-          <span>Save as reusable template</span>
-        </button>
-        {aiEnabled && (
-          <button
-            onClick={handleAiTips}
-            disabled={aiLoading}
-            className="flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 p-3 text-sm font-medium text-purple-700 shadow-sm transition-all hover:from-purple-100 hover:to-blue-100 disabled:opacity-50 dark:from-purple-950 dark:to-blue-950 dark:text-purple-300 dark:hover:from-purple-900 dark:hover:to-blue-900"
-          >
-            {aiLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
+              ))
             )}
-            <span>{aiLoading ? "Getting AI tips..." : "AI Tips & Budget Advice"}</span>
-          </button>
+          </div>
+        )}
+
+        {/* TAB 5: ALL TOOLS */}
+        {activeTab === "tools" && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-navy-400">
+              Event Planning Modules
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { href: `/events/${eventId}/tasks`, label: "Checklist", icon: ListChecks, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40" },
+                { href: `/events/${eventId}/guests`, label: "Guests", icon: Users, color: "text-purple-600 bg-purple-50 dark:bg-purple-950/40" },
+                { href: `/events/${eventId}/timeline`, label: "Timeline", icon: Clock, color: "text-amber-600 bg-amber-50 dark:bg-amber-950/40" },
+                { href: `/events/${eventId}/payment-schedule`, label: "Milestones", icon: CreditCard, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40" },
+                { href: `/events/${eventId}/invite`, label: "E-Invite", icon: Send, color: "text-rose-600 bg-rose-50 dark:bg-rose-950/40" },
+                { href: `/events/${eventId}/gallery`, label: "Gallery", icon: Camera, color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40" },
+                { href: `/events/${eventId}/seating`, label: "Seating", icon: Armchair, color: "text-orange-600 bg-orange-50 dark:bg-orange-950/40" },
+                { href: `/events/${eventId}/checkin`, label: "Check-in", icon: UserCheck, color: "text-teal-600 bg-teal-50 dark:bg-teal-950/40" },
+                { href: `/events/${eventId}/pnl`, label: "P&L", icon: TrendingUp, color: "text-lime-600 bg-lime-50 dark:bg-lime-950/40" },
+              ].map((tool) => (
+                <Link
+                  key={tool.href}
+                  href={tool.href}
+                  className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-navy-100 bg-white p-3 shadow-xs transition active:scale-95 dark:border-navy-800 dark:bg-navy-900"
+                >
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${tool.color}`}>
+                    <tool.icon className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] font-bold text-navy-800 dark:text-navy-200">
+                    {tool.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* AI Tips Section */}
-      {showAiTips && (
-        <div className="mb-4 overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:border-purple-800 dark:from-purple-950/50 dark:via-navy-900 dark:to-blue-950/50">
-          <div className="flex items-center justify-between border-b border-purple-100 px-4 py-3 dark:border-purple-800">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-              <span className="text-sm font-semibold text-purple-900 dark:text-purple-200">AI Vendor & Budget Tips</span>
-            </div>
-            <button onClick={() => setShowAiTips(false)} className="rounded-full p-1 hover:bg-purple-100 dark:hover:bg-purple-800">
-              <X className="h-3.5 w-3.5 text-purple-400" />
-            </button>
-          </div>
-          {aiLoading ? (
-            <div className="flex items-center justify-center gap-2 p-8">
-              <Loader2 className="h-5 w-5 animate-spin text-purple-500" />
-              <span className="text-sm text-purple-600 dark:text-purple-400">Analyzing your event...</span>
-            </div>
-          ) : aiTips ? (
-            <div className="space-y-4 p-4">
-              {/* Overview */}
-              <div>
-                <p className="text-sm text-navy-700 dark:text-navy-300">{aiTips.suggestions}</p>
-              </div>
-
-              {/* Price Range */}
-              {aiTips.price_range && (
-                <div className="rounded-lg bg-purple-100/50 p-3 dark:bg-purple-900/30">
-                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">Typical Price Range</p>
-                  <p className="mt-1 text-sm font-bold text-navy-900 dark:text-navy-100">
-                    {formatCurrency(aiTips.price_range.min)} - {formatCurrency(aiTips.price_range.max)}
-                  </p>
-                </div>
-              )}
-
-              {/* Checklist */}
-              {aiTips.checklist && aiTips.checklist.length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
-                    <ListChecks className="h-3.5 w-3.5" /> What to Look For
-                  </p>
-                  <ul className="space-y-1.5">
-                    {aiTips.checklist.map((item, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-navy-600 dark:text-navy-400">
-                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-purple-400" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Negotiation Tips */}
-              {aiTips.negotiation_tips && aiTips.negotiation_tips.length > 0 && (
-                <div>
-                  <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
-                    <Lightbulb className="h-3.5 w-3.5" /> Negotiation Tips
-                  </p>
-                  <ul className="space-y-1.5">
-                    {aiTips.negotiation_tips.map((tip, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-navy-600 dark:text-navy-400">
-                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
-                        {tip}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ) : null}
+      {/* Sticky Mobile Bottom Floating Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-navy-100 bg-white/95 p-3 backdrop-blur-md pb-[calc(0.75rem+var(--safe-area-bottom))] dark:border-navy-800 dark:bg-navy-900/95">
+        <div className="mx-auto flex max-w-md items-center gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="flex-1 rounded-2xl py-5 font-bold text-xs"
+          >
+            <Link href={`/events/${eventId}/add-vendor`}>
+              <Plus className="mr-1 h-4 w-4" /> Add Vendor
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="success"
+            size="lg"
+            className="flex-1 rounded-2xl py-5 font-black text-xs shadow-md shadow-emerald-200/60 active:scale-98 dark:shadow-none"
+          >
+            <Link href={`/pay?eventId=${eventId}`}>
+              <IndianRupee className="mr-1.5 h-4 w-4 stroke-[3]" /> Record Payment
+            </Link>
+          </Button>
         </div>
-      )}
+      </div>
 
-      {/* Payment History */}
-      {ledgerEntries.length > 0 && (
-        <div className="mb-4">
-          <h2 className="mb-3 text-lg font-semibold">Payment History</h2>
-          <div className="space-y-2">
-            {ledgerEntries.map((entry) => (
-              <Card key={entry.id}>
-                <CardContent className="flex items-center justify-between p-3">
-                  <div>
-                    <p className="font-medium">{(entry.vendor as any)?.name || "Vendor"}</p>
-                    <div className="flex gap-2 text-xs text-navy-500">
-                      <Badge variant="secondary" className="text-xs">{entry.payment_mode}</Badge>
-                      <Badge variant={entry.txn_type === "REFUND" ? "warning" : "secondary"} className="text-xs">
-                        {entry.txn_type}
-                      </Badge>
-                      <span>{formatDateTime(entry.recorded_at)}</span>
-                    </div>
-                    {entry.notes && <p className="mt-1 text-xs text-navy-500">{entry.notes}</p>}
-                  </div>
-                  <span className={`text-lg font-bold ${entry.txn_type === "REFUND" ? "text-red-500" : "text-emerald-600"}`}>
-                    {entry.txn_type === "REFUND" ? "-" : "+"}{formatCurrency(Number(entry.amount))}
-                  </span>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* Save Template Dialog */}
       {showTemplateDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTemplateDialog(false)}>
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          onClick={() => setShowTemplateDialog(false)}
+        >
           <div
-            className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:border dark:border-navy-700 dark:bg-navy-900"
+            className="relative z-10 w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl dark:border dark:border-navy-700 dark:bg-navy-900"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-2 text-lg font-bold text-navy-900 dark:text-navy-100">Save as Template</h3>
-            <p className="mb-4 text-sm text-navy-500">Reuse this event structure when creating future events.</p>
+            <h3 className="mb-1 text-base font-bold text-navy-900 dark:text-navy-100">
+              Save as Template
+            </h3>
+            <p className="mb-4 text-xs text-navy-500">
+              Reuse this checklist & vendor blueprint for future events.
+            </p>
             <Input
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="Template name"
+              placeholder="e.g. Royal Wedding Blueprint"
+              className="rounded-xl text-xs h-10"
               autoFocus
             />
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={() => setShowTemplateDialog(false)} disabled={savingTemplate}>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowTemplateDialog(false)}
+                disabled={savingTemplate}
+                className="rounded-xl"
+              >
                 Cancel
               </Button>
-              <Button onClick={saveAsTemplate} disabled={savingTemplate || !templateName.trim()}>
+              <Button
+                onClick={saveAsTemplate}
+                disabled={savingTemplate || !templateName.trim()}
+                className="rounded-xl font-bold"
+              >
                 {savingTemplate ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save
               </Button>

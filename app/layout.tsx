@@ -46,7 +46,7 @@ export default function RootLayout({
         <AppInit />
         <ThemeProvider>
           <ToastProvider>
-            <main className="min-h-screen bg-navy-50 dark:bg-navy-950">
+            <main className="min-h-screen bg-navy-50 dark:bg-navy-950" suppressHydrationWarning>
               {children}
             </main>
           </ToastProvider>

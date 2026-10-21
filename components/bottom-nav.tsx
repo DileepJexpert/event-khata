@@ -78,7 +78,7 @@ export function BottomNav() {
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-navy-100 bg-white pb-[var(--safe-area-bottom)] dark:border-navy-800 dark:bg-navy-900">
-        <div className="mx-auto flex max-w-lg items-center justify-around">
+        <div className="mx-auto flex max-w-md items-center justify-around">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             const isPay = item.href === "/pay";
@@ -151,7 +151,7 @@ export function BottomNav() {
           {/* Sheet Modal */}
           <div
             ref={sheetRef}
-            className="relative z-50 flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-3xl border-t border-navy-100 bg-white p-5 pb-[calc(1.5rem+var(--safe-area-bottom))] shadow-2xl dark:border-navy-800 dark:bg-navy-900"
+            className="relative z-50 flex max-h-[85vh] w-full max-w-md flex-col rounded-t-3xl border-t border-navy-100 bg-white p-5 pb-[calc(1.5rem+var(--safe-area-bottom))] shadow-2xl dark:border-navy-800 dark:bg-navy-900"
           >
             {/* Pill drag bar */}
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-navy-200 dark:bg-navy-700" />
