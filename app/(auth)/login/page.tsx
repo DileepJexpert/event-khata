@@ -77,7 +77,7 @@ export default function LoginPage() {
     if (data?.user) {
       const { data: agency } = await supabase
         .from("agencies")
-        .select("id, is_active")
+        .select("*")
         .eq("id", data.user.id)
         .maybeSingle();
 
@@ -109,7 +109,7 @@ export default function LoginPage() {
       if (!signInError && data?.user) {
         const { data: agency } = await supabase
           .from("agencies")
-          .select("id, is_active")
+          .select("*")
           .eq("id", data.user.id)
           .maybeSingle();
 

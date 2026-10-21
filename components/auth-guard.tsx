@@ -19,21 +19,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         router.replace("/login");
         return;
       }
-      // Load the agency's status + preferred currency.
+
+      // Safely load the agency's record
       const { data: agency } = await supabase
         .from("agencies")
-        .select("currency, is_active")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
       // Blocked by admin → sign out and bounce to login with a notice.
-      if (agency && agency.is_active === false) {
+      if (agency && (agency as any).is_active === false) {
         await supabase.auth.signOut();
         router.replace("/login?disabled=1");
         return;
       }
 
-      setActiveCurrency(agency?.currency);
+      setActiveCurrency((agency as any)?.currency || "INR");
       setChecked(true);
     }
     check();
@@ -41,7 +42,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!checked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-navy-50">
+      <div className="flex min-h-screen items-center justify-center bg-navy-50 dark:bg-navy-950">
         <Loader2 className="h-8 w-8 animate-spin text-navy-400" />
       </div>
     );
