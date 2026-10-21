@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileHeader } from "@/components/mobile-header";
+import { fetchWithCache, invalidateCache } from "@/lib/cache";
 import {
   Plus,
   Search,
@@ -17,6 +18,7 @@ import {
   Star,
   MessageCircle,
   IndianRupee,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -26,6 +28,7 @@ import type { Vendor } from "@/lib/types";
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<(Vendor & { total_paid: number })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const supabase = createClient();
@@ -34,44 +37,54 @@ export default function VendorsPage() {
     loadVendors();
   }, []);
 
-  async function loadVendors() {
-    const { data: vendorsData, error } = await supabase
-      .from("vendors")
-      .select("*")
-      .order("name");
+  async function loadVendors(forceFresh = false) {
+    if (forceFresh) setRefreshing(true);
 
-    if (error) console.error("[VendorsPage] Failed to load vendors:", error.message, error);
+    try {
+      const data = await fetchWithCache(
+        "vendors:list_with_paid",
+        async () => {
+          // Parallel 2 queries (No N+1 loop)
+          const [vendorsRes, ledgerRes] = await Promise.all([
+            supabase.from("vendors").select("*").order("name"),
+            supabase.from("ledger").select("vendor_id, amount, txn_type"),
+          ]);
 
-    if (vendorsData) {
-      const vendorsWithPaid = await Promise.all(
-        vendorsData.map(async (vendor) => {
-          const { data: ledgerData, error: ledgerError } = await supabase
-            .from("ledger")
-            .select("amount, txn_type")
-            .eq("vendor_id", vendor.id);
-
-          if (ledgerError) {
-            console.error(
-              "[VendorsPage] Failed to load ledger for vendor:",
-              vendor.id,
-              ledgerError.message,
-              ledgerError
-            );
+          if (vendorsRes.error) {
+            console.error("[VendorsPage] Failed to load vendors:", vendorsRes.error.message);
+            return [];
           }
 
-          const total_paid = (ledgerData || []).reduce((sum, entry) => {
-            return entry.txn_type === "REFUND"
-              ? sum - Number(entry.amount)
-              : sum + Number(entry.amount);
-          }, 0);
+          const vendorsData = vendorsRes.data || [];
+          const ledgerData = ledgerRes.data || [];
 
-          return { ...vendor, total_paid };
-        })
+          // Group paid amounts by vendor_id in memory (0ms)
+          const paidMap: Record<string, number> = {};
+          ledgerData.forEach((entry) => {
+            if (!entry.vendor_id) return;
+            const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
+            paidMap[entry.vendor_id] = (paidMap[entry.vendor_id] || 0) + amt;
+          });
+
+          return vendorsData.map((vendor) => ({
+            ...vendor,
+            total_paid: paidMap[vendor.id] || 0,
+          }));
+        },
+        { ttlMs: 45000, tags: ["vendors", "ledger"], forceFresh }
       );
-      setVendors(vendorsWithPaid);
+
+      setVendors(data);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
   }
+
+  const handleManualRefresh = () => {
+    invalidateCache(["vendors", "ledger"]);
+    loadVendors(true);
+  };
 
   const filtered = vendors.filter((v) => {
     const matchSearch =
@@ -101,12 +114,23 @@ export default function VendorsPage() {
         title="Vendors"
         subtitle={`${vendors.length} vendors in directory`}
         rightAction={
-          <Link href="/vendors/compare">
-            <Button variant="ghost" size="sm" className="h-8 gap-1 px-2.5 text-xs font-semibold">
-              <GitCompare className="h-3.5 w-3.5" />
-              Compare
-            </Button>
-          </Link>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 active:scale-95 dark:text-navy-300 dark:hover:bg-navy-800 disabled:opacity-50"
+              title="Refresh vendors"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+            <Link href="/vendors/compare">
+              <Button variant="ghost" size="sm" className="h-8 gap-1 px-2.5 text-xs font-semibold">
+                <GitCompare className="h-3.5 w-3.5" />
+                Compare
+              </Button>
+            </Link>
+          </div>
         }
       />
 
@@ -209,9 +233,9 @@ export default function VendorsPage() {
                               {vendor.category.replace("_", " ")}
                             </Badge>
                           )}
-                          {vendor.phone && (
+                          {vendor.address && (
                             <span className="text-[11px] text-navy-400 font-medium">
-                              {vendor.phone}
+                              · {vendor.address}
                             </span>
                           )}
                         </div>

@@ -18,11 +18,13 @@ import {
   IndianRupee,
   CheckCircle2,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { StarRating } from "@/components/star-rating";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils";
+import { fetchWithCache, invalidateCache } from "@/lib/cache";
 import type { Vendor, LedgerEntry, Event } from "@/lib/types";
 
 export default function VendorDetailPage() {
@@ -35,33 +37,54 @@ export default function VendorDetailPage() {
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [payments, setPayments] = useState<(LedgerEntry & { event: Event })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
   }, [vendorId]);
 
-  async function loadData() {
-    const [vendorRes, paymentsRes] = await Promise.all([
-      supabase.from("vendors").select("*").eq("id", vendorId).single(),
-      supabase
-        .from("ledger")
-        .select("*, event:events(*)")
-        .eq("vendor_id", vendorId)
-        .order("recorded_at", { ascending: false }),
-    ]);
+  async function loadData(forceFresh = false) {
+    if (forceFresh) setRefreshing(true);
+    try {
+      const result = await fetchWithCache(
+        `vendor:detail:${vendorId}`,
+        async () => {
+          const [vendorRes, paymentsRes] = await Promise.all([
+            supabase.from("vendors").select("*").eq("id", vendorId).single(),
+            supabase
+              .from("ledger")
+              .select("*, event:events(*)")
+              .eq("vendor_id", vendorId)
+              .order("recorded_at", { ascending: false }),
+          ]);
 
-    if (vendorRes.error) console.error("[VendorDetail] Failed to load vendor:", vendorRes.error.message, vendorRes.error);
-    if (paymentsRes.error) console.error("[VendorDetail] Failed to load payments:", paymentsRes.error.message, paymentsRes.error);
+          if (vendorRes.error) console.error("[VendorDetail] Failed to load vendor:", vendorRes.error.message);
+          if (paymentsRes.error) console.error("[VendorDetail] Failed to load payments:", paymentsRes.error.message);
 
-    if (vendorRes.data) {
-      setVendor(vendorRes.data);
+          return {
+            vendor: vendorRes.data || null,
+            payments: (paymentsRes.data as any) || [],
+          };
+        },
+        { ttlMs: 45000, tags: [`vendor:${vendorId}`, "vendors", "ledger"], forceFresh }
+      );
+
+      if (result.vendor) setVendor(result.vendor);
+      setPayments(result.payments);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    if (paymentsRes.data) setPayments(paymentsRes.data as any);
-    setLoading(false);
   }
+
+  const handleManualRefresh = () => {
+    invalidateCache([`vendor:${vendorId}`, "vendors", "ledger"]);
+    loadData(true);
+  };
 
   async function handleRate(rating: number) {
     await supabase.from("vendors").update({ rating }).eq("id", vendorId);
+    invalidateCache([`vendor:${vendorId}`, "vendors"]);
     addToast({ title: `Rated ${rating} stars`, variant: "success" });
     setVendor((prev) => (prev ? { ...prev, rating } : prev));
   }
@@ -111,13 +134,24 @@ export default function VendorDetailPage() {
         showBack
         backHref="/vendors"
         rightAction={
-          <Link
-            href={`/vendors/${vendorId}/edit`}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 dark:text-navy-300 dark:hover:bg-navy-800"
-            title="Edit Vendor"
-          >
-            <Pencil className="h-4 w-4" />
-          </Link>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              title="Refresh vendor data"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 active:scale-95 dark:text-navy-300 dark:hover:bg-navy-800 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+            <Link
+              href={`/vendors/${vendorId}/edit`}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 dark:text-navy-300 dark:hover:bg-navy-800"
+              title="Edit Vendor"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+          </div>
         }
       />
 

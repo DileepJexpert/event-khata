@@ -43,10 +43,12 @@ import {
   TrendingUp,
   IndianRupee,
   Receipt,
+  RefreshCw,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatDateTime, formatTime, daysUntil } from "@/lib/utils";
 import { EventProgress } from "@/components/event-progress";
 import { useToast } from "@/components/ui/toast";
+import { fetchWithCache, invalidateCache } from "@/lib/cache";
 import type { Event, Vendor, Contract, LedgerEntry, SubEvent, Task } from "@/lib/types";
 import { checkAIEnabled, getVendorSuggestion, type VendorSuggestionResponse } from "@/lib/ai";
 
@@ -78,6 +80,7 @@ export default function EventDetailPage() {
   const [guestCount, setGuestCount] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTips, setAiTips] = useState<VendorSuggestionResponse | null>(null);
@@ -94,47 +97,71 @@ export default function EventDetailPage() {
     checkAIEnabled().then(setAiEnabled);
   }, [eventId]);
 
-  async function loadData() {
-    const [
-      eventRes,
-      contractsRes,
-      ledgerRes,
-      subEventsRes,
-      tasksRes,
-      guestsRes,
-      expensesRes,
-    ] = await Promise.all([
-      supabase.from("events").select("*").eq("id", eventId).single(),
-      supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
-      supabase
-        .from("ledger")
-        .select("*, vendor:vendors(*)")
-        .eq("event_id", eventId)
-        .order("recorded_at", { ascending: false }),
-      supabase
-        .from("sub_events")
-        .select("*")
-        .eq("event_id", eventId)
-        .order("date", { ascending: true, nullsFirst: false })
-        .order("sort_order"),
-      supabase.from("tasks").select("*").eq("event_id", eventId),
-      supabase.from("guests").select("id", { count: "exact" }).eq("event_id", eventId),
-      supabase.from("expenses").select("amount").eq("event_id", eventId),
-    ]);
+  async function loadData(forceFresh = false) {
+    if (forceFresh) setRefreshing(true);
+    try {
+      const result = await fetchWithCache(
+        `event:detail:${eventId}`,
+        async () => {
+          const [
+            eventRes,
+            contractsRes,
+            ledgerRes,
+            subEventsRes,
+            tasksRes,
+            guestsRes,
+            expensesRes,
+          ] = await Promise.all([
+            supabase.from("events").select("*").eq("id", eventId).single(),
+            supabase.from("contracts").select("*, vendor:vendors(*)").eq("event_id", eventId),
+            supabase
+              .from("ledger")
+              .select("*, vendor:vendors(*)")
+              .eq("event_id", eventId)
+              .order("recorded_at", { ascending: false }),
+            supabase
+              .from("sub_events")
+              .select("*")
+              .eq("event_id", eventId)
+              .order("date", { ascending: true, nullsFirst: false })
+              .order("sort_order"),
+            supabase.from("tasks").select("*").eq("event_id", eventId),
+            supabase.from("guests").select("id", { count: "exact" }).eq("event_id", eventId),
+            supabase.from("expenses").select("amount").eq("event_id", eventId),
+          ]);
 
-    if (eventRes.error) console.error("[EventDetail] Failed to load event:", eventRes.error.message, eventRes.error);
-    if (contractsRes.error) console.error("[EventDetail] Failed to load contracts:", contractsRes.error.message, contractsRes.error);
-    if (ledgerRes.error) console.error("[EventDetail] Failed to load ledger:", ledgerRes.error.message, ledgerRes.error);
+          if (eventRes.error) console.error("[EventDetail] Failed to load event:", eventRes.error.message);
 
-    if (eventRes.data) setEvent(eventRes.data);
-    if (contractsRes.data) setContracts(contractsRes.data as any);
-    if (ledgerRes.data) setLedgerEntries(ledgerRes.data as any);
-    if (subEventsRes.data) setSubEvents(subEventsRes.data);
-    if (tasksRes.data) setTasks(tasksRes.data);
-    setGuestCount(guestsRes.count || 0);
-    setTotalExpenses((expensesRes.data || []).reduce((s: number, e: any) => s + Number(e.amount), 0));
-    setLoading(false);
+          return {
+            event: eventRes.data || null,
+            contracts: (contractsRes.data as any) || [],
+            ledgerEntries: (ledgerRes.data as any) || [],
+            subEvents: subEventsRes.data || [],
+            tasks: tasksRes.data || [],
+            guestCount: guestsRes.count || 0,
+            totalExpenses: (expensesRes.data || []).reduce((s: number, e: any) => s + Number(e.amount), 0),
+          };
+        },
+        { ttlMs: 45000, tags: [`event:${eventId}`, "events", "ledger"], forceFresh }
+      );
+
+      if (result.event) setEvent(result.event);
+      setContracts(result.contracts);
+      setLedgerEntries(result.ledgerEntries);
+      setSubEvents(result.subEvents);
+      setTasks(result.tasks);
+      setGuestCount(result.guestCount);
+      setTotalExpenses(result.totalExpenses);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
+
+  const handleManualRefresh = () => {
+    invalidateCache([`event:${eventId}`, "events", "ledger"]);
+    loadData(true);
+  };
 
   async function handleAiTips() {
     if (!event) return;
@@ -345,6 +372,15 @@ export default function EventDetailPage() {
         backHref="/events"
         rightAction={
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              title="Refresh event data"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 active:scale-95 dark:text-navy-300 dark:hover:bg-navy-800 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
             <button
               type="button"
               onClick={shareEventSummary}

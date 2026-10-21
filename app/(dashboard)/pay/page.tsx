@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDate, PAYMENT_MODES, TXN_TYPES } from "@/lib/utils";
 import { getPaymentReceiptMessage } from "@/lib/whatsapp";
+import { invalidateCache } from "@/lib/cache";
 import type { Event, Vendor, Contract } from "@/lib/types";
 
 type SavedPayment = {
@@ -228,6 +229,16 @@ function QuickPayContent() {
           variant: "destructive",
         });
       } else {
+        // Instantly purge runtime cache for financial integrity
+        invalidateCache([
+          "ledger",
+          "events",
+          "vendors",
+          "dashboard",
+          `event:${selectedEvent}`,
+          `vendor:${selectedVendor}`,
+        ]);
+
         setSaved({
           eventName: event?.client_name || "",
           vendorName: contract?.vendor?.name || "",

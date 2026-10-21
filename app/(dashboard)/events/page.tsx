@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileHeader } from "@/components/mobile-header";
-import { Plus, Search, CalendarDays } from "lucide-react";
+import { fetchWithCache, invalidateCache } from "@/lib/cache";
+import { Plus, Search, CalendarDays, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import type { Event } from "@/lib/types";
 
 export default function EventsPage() {
   const [events, setEvents] = useState<(Event & { total_spent: number })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const supabase = createClient();
@@ -23,46 +25,57 @@ export default function EventsPage() {
     loadEvents();
   }, []);
 
-  async function loadEvents() {
-    const { data: eventsData, error } = await supabase
-      .from("events")
-      .select("*")
-      .order("event_date", { ascending: false, nullsFirst: false });
+  async function loadEvents(forceFresh = false) {
+    if (forceFresh) setRefreshing(true);
 
-    if (error) {
-      console.error("[EventsPage] Failed to load events:", error.message, error);
-    }
+    try {
+      const data = await fetchWithCache(
+        "events:list_with_spent",
+        async () => {
+          // Fetch events and all ledger entries in parallel (ONLY 2 queries, no N+1 loop)
+          const [eventsRes, ledgerRes] = await Promise.all([
+            supabase
+              .from("events")
+              .select("*")
+              .order("event_date", { ascending: false, nullsFirst: false }),
+            supabase.from("ledger").select("event_id, amount, txn_type"),
+          ]);
 
-    if (eventsData) {
-      const eventsWithSpent = await Promise.all(
-        eventsData.map(async (event) => {
-          const { data: ledgerData, error: ledgerError } = await supabase
-            .from("ledger")
-            .select("amount, txn_type")
-            .eq("event_id", event.id);
-
-          if (ledgerError) {
-            console.error(
-              "[EventsPage] Failed to load ledger for event:",
-              event.id,
-              ledgerError.message,
-              ledgerError
-            );
+          if (eventsRes.error) {
+            console.error("[EventsPage] Failed to load events:", eventsRes.error.message);
+            return [];
           }
 
-          const total_spent = (ledgerData || []).reduce((sum, entry) => {
-            return entry.txn_type === "REFUND"
-              ? sum - Number(entry.amount)
-              : sum + Number(entry.amount);
-          }, 0);
+          const eventsData = eventsRes.data || [];
+          const ledgerData = ledgerRes.data || [];
 
-          return { ...event, total_spent };
-        })
+          // Group spent by event_id in memory (0ms)
+          const spentMap: Record<string, number> = {};
+          ledgerData.forEach((entry) => {
+            if (!entry.event_id) return;
+            const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
+            spentMap[entry.event_id] = (spentMap[entry.event_id] || 0) + amt;
+          });
+
+          return eventsData.map((evt) => ({
+            ...evt,
+            total_spent: spentMap[evt.id] || 0,
+          }));
+        },
+        { ttlMs: 45000, tags: ["events", "ledger"], forceFresh }
       );
-      setEvents(eventsWithSpent);
+
+      setEvents(data);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
   }
+
+  const handleManualRefresh = () => {
+    invalidateCache(["events", "ledger"]);
+    loadEvents(true);
+  };
 
   const filtered = events.filter((e) => {
     const matchSearch =
@@ -79,16 +92,27 @@ export default function EventsPage() {
         title="Events"
         subtitle={`${events.length} total events`}
         rightAction={
-          <Link href="/events/calendar">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full text-navy-600 hover:bg-navy-100 dark:text-navy-300 dark:hover:bg-navy-800"
-              aria-label="Open event calendar"
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-navy-600 hover:bg-navy-100 active:scale-95 dark:text-navy-300 dark:hover:bg-navy-800 disabled:opacity-50"
+              title="Refresh events"
             >
-              <CalendarDays className="h-4 w-4" />
-            </Button>
-          </Link>
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+            <Link href="/events/calendar">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-navy-600 hover:bg-navy-100 dark:text-navy-300 dark:hover:bg-navy-800"
+                aria-label="Open event calendar"
+              >
+                <CalendarDays className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         }
       />
 

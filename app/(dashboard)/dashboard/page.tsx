@@ -21,11 +21,13 @@ import {
   MessageCircle,
   Sparkles,
   Search,
+  RefreshCw,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
 import { getPaymentReceiptMessage } from "@/lib/whatsapp";
+import { fetchWithCache, invalidateCache } from "@/lib/cache";
 import type { Event, LedgerEntry, PaymentSchedule, Lead } from "@/lib/types";
 import {
   BarChart,
@@ -101,6 +103,7 @@ type DashboardData = {
 export default function DashboardPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [agencyName, setAgencyName] = useState("Event Planner");
   const [data, setData] = useState<DashboardData>({
     activeEvents: 0,
@@ -123,186 +126,194 @@ export default function DashboardPage() {
     loadDashboard();
   }, []);
 
-  async function loadDashboard() {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  async function loadDashboard(forceFresh = false) {
+    if (forceFresh) setRefreshing(true);
 
-    // Load agency profile
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: agency } = await supabase
-        .from("agencies")
-        .select("name")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (agency?.name) setAgencyName(agency.name);
-    }
+    try {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const todayStr = now.toISOString().split("T")[0];
 
-    const [
-      eventsRes,
-      vendorsRes,
-      ledgerRes,
-      monthLedgerRes,
-      schedulesRes,
-      leadsRes,
-      tasksRes,
-    ] = await Promise.all([
-      supabase.from("events").select("*").eq("status", "active"),
-      supabase.from("vendors").select("id", { count: "exact" }),
-      supabase
-        .from("ledger")
-        .select("*, vendor:vendors(name, phone), event:events(client_name)")
-        .order("recorded_at", { ascending: false })
-        .limit(5),
-      supabase.from("ledger").select("amount, txn_type").gte("recorded_at", monthStart),
-      supabase
-        .from("payment_schedules")
-        .select("*, vendor:vendors(name), event:events(client_name)")
-        .in("status", ["upcoming", "due", "overdue"])
-        .order("due_date", { ascending: true })
-        .limit(5),
-      supabase.from("leads").select("id", { count: "exact" }).eq("status", "new"),
-      supabase.from("tasks").select("id", { count: "exact" }).in("status", ["pending", "in_progress"]),
-    ]);
+      // Use High-Performance In-Memory Cache
+      const result = await fetchWithCache(
+        "dashboard:aggregate",
+        async () => {
+          // Parallel consolidated execution (NO duplicate ledger queries)
+          const [
+            agencyUserRes,
+            eventsRes,
+            vendorsRes,
+            allLedgerRes,
+            contractsRes,
+            schedulesRes,
+            leadsRes,
+            tasksRes,
+            nearestEventsRes,
+          ] = await Promise.all([
+            supabase.auth.getUser(),
+            supabase.from("events").select("*").eq("status", "active"),
+            supabase.from("vendors").select("id", { count: "exact" }),
+            supabase
+              .from("ledger")
+              .select("id, amount, txn_type, recorded_at, payment_mode, vendor_id, event_id, vendor:vendors(name, phone, category), event:events(client_name)")
+              .order("recorded_at", { ascending: false }),
+            supabase.from("contracts").select("agreed_amount, event_id, vendor_id"),
+            supabase
+              .from("payment_schedules")
+              .select("*, vendor:vendors(name), event:events(client_name)")
+              .in("status", ["upcoming", "due", "overdue"])
+              .order("due_date", { ascending: true })
+              .limit(5),
+            supabase.from("leads").select("id", { count: "exact" }).eq("status", "new"),
+            supabase.from("tasks").select("id", { count: "exact" }).in("status", ["pending", "in_progress"]),
+            supabase
+              .from("events")
+              .select("id, client_name, venue, event_date, client_phone")
+              .gte("event_date", todayStr)
+              .order("event_date", { ascending: true })
+              .limit(1),
+          ]);
 
-    const activeEvents = eventsRes.data || [];
-    const monthPayments = monthLedgerRes.data || [];
-    const totalPaidThisMonth = monthPayments.reduce(
-      (sum, p) => sum + (p.txn_type === "REFUND" ? -Number(p.amount) : Number(p.amount)),
-      0
-    );
+          const user = agencyUserRes.data.user;
+          let fetchedAgencyName = "Event Planner";
+          if (user) {
+            const { data: agency } = await supabase
+              .from("agencies")
+              .select("name")
+              .eq("id", user.id)
+              .maybeSingle();
+            if (agency?.name) fetchedAgencyName = agency.name;
+          }
 
-    // Calculate outstanding from contracts vs ledger
-    const contractsRes = await supabase.from("contracts").select("agreed_amount, event_id, vendor_id");
-    const allLedgerRes = await supabase.from("ledger").select("amount, txn_type, event_id, vendor_id");
-    const contracts = contractsRes.data || [];
-    const allPayments = allLedgerRes.data || [];
+          const activeEvents = eventsRes.data || [];
+          const allLedger = allLedgerRes.data || [];
+          const contracts = contractsRes.data || [];
 
-    const totalAgreed = contracts.reduce((s, c) => s + Number(c.agreed_amount), 0);
-    const totalPaid = allPayments.reduce(
-      (s, p) => s + (p.txn_type === "REFUND" ? -Number(p.amount) : Number(p.amount)),
-      0
-    );
+          // Compute financials in-memory (0ms)
+          let totalPaid = 0;
+          let totalPaidThisMonth = 0;
+          const monthMap: Record<string, number> = {};
+          const catMap: Record<string, number> = {};
 
-    const upcomingPayments = (schedulesRes.data || []).map((s: any) => ({
-      ...s,
-      vendor_name: s.vendor?.name || "Unknown",
-      event_name: s.event?.client_name || "Unknown",
-    }));
+          const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const key = `${MONTH_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
+            monthMap[key] = 0;
+          }
 
-    const recentPayments: RecentPaymentItem[] = (ledgerRes.data || []).map((l: any) => ({
-      ...l,
-      vendor_name: l.vendor?.name || "Unknown",
-      vendor_phone: l.vendor?.phone || null,
-      event_name: l.event?.client_name || "Unknown",
-    }));
+          allLedger.forEach((entry: any) => {
+            const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
+            totalPaid += amt;
 
-    const overdueCount = upcomingPayments.filter((p: any) => p.status === "overdue").length;
+            if (entry.recorded_at >= monthStart) {
+              totalPaidThisMonth += amt;
+            }
 
-    // Build activity feed from recent payments
-    const activity: ActivityItem[] = recentPayments.map((p: any) => ({
-      id: p.id,
-      type: "payment" as const,
-      title: `${p.txn_type === "REFUND" ? "Refund" : "Payment"} to ${p.vendor_name}`,
-      subtitle: `${formatCurrency(Number(p.amount))} - ${p.event_name}`,
-      time: p.recorded_at,
-      icon: "payment" as const,
-    }));
+            // Monthly breakdown
+            const d = new Date(entry.recorded_at);
+            const key = `${MONTH_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
+            if (key in monthMap) {
+              monthMap[key] += amt;
+            }
 
-    setData({
-      activeEvents: activeEvents.length,
-      totalVendors: vendorsRes.count || 0,
-      totalPaidThisMonth,
-      totalOutstanding: Math.max(0, totalAgreed - totalPaid),
-      upcomingPayments,
-      recentPayments,
-      upcomingEvents: activeEvents
-        .filter((e) => e.event_date && daysUntil(e.event_date) >= 0 && daysUntil(e.event_date) <= 30)
-        .slice(0, 3),
-      newLeads: leadsRes.count || 0,
-      overduePayments: overdueCount,
-      pendingTasks: tasksRes.count || 0,
-      recentActivity: activity,
-    });
+            // Category breakdown
+            const cat = entry.vendor?.category || "other";
+            const label = cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, " ");
+            catMap[label] = (catMap[label] || 0) + amt;
+          });
 
-    // Nearest upcoming event countdown
-    const todayStr = new Date().toISOString().split("T")[0];
-    const { data: nearestEvents } = await supabase
-      .from("events")
-      .select("id, client_name, venue, event_date, client_phone")
-      .gte("event_date", todayStr)
-      .order("event_date", { ascending: true })
-      .limit(1);
+          const totalAgreed = contracts.reduce((s, c) => s + Number(c.agreed_amount), 0);
+          const totalOutstanding = Math.max(0, totalAgreed - totalPaid);
 
-    if (nearestEvents && nearestEvents.length > 0) {
-      const evt = nearestEvents[0];
-      setCountdownEvent({
-        id: evt.id,
-        client_name: evt.client_name,
-        venue: evt.venue,
-        event_date: evt.event_date,
-        days_left: daysUntil(evt.event_date),
-        client_phone: evt.client_phone,
-      });
-    }
+          const upcomingPayments = (schedulesRes.data || []).map((s: any) => ({
+            ...s,
+            vendor_name: s.vendor?.name || "Unknown",
+            event_name: s.event?.client_name || "Unknown",
+          }));
 
-    // Monthly payment trends
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    const sixMonthsAgoStr = sixMonthsAgo.toISOString();
+          const recentPayments: RecentPaymentItem[] = allLedger.slice(0, 5).map((l: any) => ({
+            ...l,
+            vendor_name: l.vendor?.name || "Unknown",
+            vendor_phone: l.vendor?.phone || null,
+            event_name: l.event?.client_name || "Unknown",
+          }));
 
-    const { data: monthlyLedger } = await supabase
-      .from("ledger")
-      .select("amount, txn_type, recorded_at")
-      .gte("recorded_at", sixMonthsAgoStr)
-      .order("recorded_at", { ascending: true });
+          const overdueCount = upcomingPayments.filter((p: any) => p.status === "overdue").length;
 
-    if (monthlyLedger && monthlyLedger.length > 0) {
-      const monthMap: Record<string, number> = {};
-      const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        const key = `${MONTH_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
-        monthMap[key] = 0;
-      }
-      monthlyLedger.forEach((entry) => {
-        const d = new Date(entry.recorded_at);
-        const key = `${MONTH_SHORT[d.getMonth()]} '${String(d.getFullYear()).slice(-2)}`;
-        if (key in monthMap) {
-          const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
-          monthMap[key] += amt;
-        }
-      });
-      setMonthlyPayments(
-        Object.entries(monthMap).map(([month, total]) => ({ month, total: Math.max(0, total) }))
+          const activity: ActivityItem[] = recentPayments.map((p: any) => ({
+            id: p.id,
+            type: "payment" as const,
+            title: `${p.txn_type === "REFUND" ? "Refund" : "Payment"} to ${p.vendor_name}`,
+            subtitle: `${formatCurrency(Number(p.amount))} - ${p.event_name}`,
+            time: p.recorded_at,
+            icon: "payment" as const,
+          }));
+
+          let countdown: CountdownEvent | null = null;
+          if (nearestEventsRes.data && nearestEventsRes.data.length > 0) {
+            const evt = nearestEventsRes.data[0];
+            countdown = {
+              id: evt.id,
+              client_name: evt.client_name,
+              venue: evt.venue,
+              event_date: evt.event_date,
+              days_left: daysUntil(evt.event_date),
+              client_phone: evt.client_phone,
+            };
+          }
+
+          const monthlyPaymentsTrend = Object.entries(monthMap).map(([month, total]) => ({
+            month,
+            total: Math.max(0, total),
+          }));
+
+          const categorySpendingList = Object.entries(catMap)
+            .map(([category, total]) => ({ category, total: Math.max(0, total) }))
+            .filter((item) => item.total > 0)
+            .sort((a, b) => b.total - a.total);
+
+          return {
+            agencyName: fetchedAgencyName,
+            dashboardData: {
+              activeEvents: activeEvents.length,
+              totalVendors: vendorsRes.count || 0,
+              totalPaidThisMonth,
+              totalOutstanding,
+              upcomingPayments,
+              recentPayments,
+              upcomingEvents: activeEvents
+                .filter((e) => e.event_date && daysUntil(e.event_date) >= 0 && daysUntil(e.event_date) <= 30)
+                .slice(0, 3),
+              newLeads: leadsRes.count || 0,
+              overduePayments: overdueCount,
+              pendingTasks: tasksRes.count || 0,
+              recentActivity: activity,
+            },
+            countdownEvent: countdown,
+            monthlyPayments: monthlyPaymentsTrend,
+            categorySpending: categorySpendingList,
+          };
+        },
+        { ttlMs: 30000, tags: ["dashboard", "ledger", "events", "vendors"], forceFresh }
       );
+
+      setAgencyName(result.agencyName);
+      setData(result.dashboardData);
+      setCountdownEvent(result.countdownEvent);
+      setMonthlyPayments(result.monthlyPayments);
+      setCategorySpending(result.categorySpending);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    // Category spending
-    const { data: categoryLedger } = await supabase
-      .from("ledger")
-      .select("amount, txn_type, vendor:vendors(category)");
-
-    if (categoryLedger && categoryLedger.length > 0) {
-      const catMap: Record<string, number> = {};
-      categoryLedger.forEach((entry: any) => {
-        const cat = entry.vendor?.category || "other";
-        const label = cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, " ");
-        const amt = entry.txn_type === "REFUND" ? -Number(entry.amount) : Number(entry.amount);
-        catMap[label] = (catMap[label] || 0) + amt;
-      });
-      setCategorySpending(
-        Object.entries(catMap)
-          .map(([category, total]) => ({ category, total: Math.max(0, total) }))
-          .filter((item) => item.total > 0)
-          .sort((a, b) => b.total - a.total)
-      );
-    }
-
-    setLoading(false);
   }
+
+  const handleManualRefresh = () => {
+    invalidateCache(["dashboard", "ledger", "events", "vendors"]);
+    loadDashboard(true);
+  };
 
   const handleShareReceipt = (payment: RecentPaymentItem) => {
     const msg = getPaymentReceiptMessage({
@@ -360,21 +371,30 @@ export default function DashboardPage() {
     <div className="px-4 pb-24 pt-3">
       {/* Mobile App Header */}
       <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-lg font-bold text-white shadow-md">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-lg font-bold text-white shadow-md">
             ₹
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-navy-400 dark:text-navy-500">
               Namaste, Planner 🙏
             </p>
-            <h1 className="truncate text-lg font-extrabold leading-tight text-navy-900 dark:text-navy-100">
+            <h1 className="truncate text-base font-extrabold leading-tight text-navy-900 dark:text-navy-100">
               {agencyName}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-navy-600 shadow-xs hover:bg-navy-50 active:scale-95 dark:bg-navy-800 dark:text-navy-300 disabled:opacity-50"
+            title="Refresh dashboard data"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
           <Link
             href="/notifications"
             className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-navy-600 shadow-xs hover:bg-navy-50 active:scale-95 dark:bg-navy-800 dark:text-navy-300"

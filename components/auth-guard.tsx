@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { setActiveCurrency } from "@/lib/utils";
+import { fetchWithCache } from "@/lib/cache";
 import { Loader2 } from "lucide-react";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -11,23 +12,50 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
+  const authenticatedRef = useRef(false);
 
   useEffect(() => {
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser();
+      // If already authenticated in current session, don't block route transition
+      if (authenticatedRef.current) {
+        setChecked(true);
+        return;
+      }
+
+      // Fast session check
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+
       if (!user) {
+        // Fallback to getUser if session is validating
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) {
+          router.replace("/login");
+          return;
+        }
+      }
+
+      const activeUserId = user?.id || (await supabase.auth.getUser()).data.user?.id;
+      if (!activeUserId) {
         router.replace("/login");
         return;
       }
 
-      // Safely load the agency's record
-      const { data: agency } = await supabase
-        .from("agencies")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
+      // Load agency with runtime cache so page navigation is instant
+      const agency = await fetchWithCache(
+        `agency:${activeUserId}`,
+        async () => {
+          const { data } = await supabase
+            .from("agencies")
+            .select("id, currency, is_active, name")
+            .eq("id", activeUserId)
+            .maybeSingle();
+          return data;
+        },
+        { ttlMs: 10 * 60 * 1000, tags: ["agency"] } // 10 min cache
+      );
 
-      // Blocked by admin → sign out and bounce to login with a notice.
+      // Blocked by admin → sign out and bounce to login
       if (agency && (agency as any).is_active === false) {
         await supabase.auth.signOut();
         router.replace("/login?disabled=1");
@@ -35,8 +63,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       }
 
       setActiveCurrency((agency as any)?.currency || "INR");
+      authenticatedRef.current = true;
       setChecked(true);
     }
+
     check();
   }, [pathname]);
 
