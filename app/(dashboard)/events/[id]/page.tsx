@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { VendorPaymentCard } from "@/components/vendor-payment-card";
 import { BudgetDonut } from "@/components/budget-donut";
 import {
-  ArrowLeft, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
+  ArrowLeft, ArrowRight, Plus, Share2, CalendarDays, MapPin, Phone, Pencil,
   ListChecks, Users, Clock, CreditCard, PartyPopper, FileText, MessageCircle,
   Send, Copy, Save, AlertTriangle, Sparkles, Loader2, X, Lightbulb, Brain, ChevronDown, ChevronUp,
   Camera, Armchair, UserCheck, TrendingUp,
@@ -319,6 +319,76 @@ export default function EventDetailPage() {
           </div>
         );
       })()}
+
+      {/* Executive Financial Ribbon */}
+      <div className="mb-4 overflow-hidden rounded-2xl border border-navy-100 bg-white p-4 shadow-sm dark:border-navy-800 dark:bg-navy-900">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-navy-500 dark:text-navy-400">
+            Financial Snapshot
+          </span>
+          <Link
+            href={`/events/${eventId}/pnl`}
+            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+          >
+            Detailed P&L <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="rounded-xl bg-navy-50/70 p-3 dark:bg-navy-800/60">
+            <p className="text-[11px] font-medium text-navy-500 dark:text-navy-400">Client Budget</p>
+            <p className="mt-0.5 truncate text-base font-bold text-navy-900 dark:text-navy-100">
+              {event.total_budget ? formatCurrency(Number(event.total_budget)) : "Not set"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-blue-50/70 p-3 dark:bg-blue-950/30">
+            <p className="text-[11px] font-medium text-blue-700 dark:text-blue-300">Vendor Committed</p>
+            <p className="mt-0.5 truncate text-base font-bold text-blue-900 dark:text-blue-100">
+              {formatCurrency(totalAgreed)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-emerald-50/70 p-3 dark:bg-emerald-950/30">
+            <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Paid to Date</p>
+            <p className="mt-0.5 truncate text-base font-bold text-emerald-900 dark:text-emerald-100">
+              {formatCurrency(totalSpent)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-amber-50/70 p-3 dark:bg-amber-950/30">
+            <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Balance Due</p>
+            <p className="mt-0.5 truncate text-base font-bold text-amber-900 dark:text-amber-100">
+              {formatCurrency(Math.max(0, totalAgreed - totalSpent))}
+            </p>
+          </div>
+        </div>
+
+        {totalAgreed > 0 && (
+          <div className="mt-3.5 space-y-1.5">
+            <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-navy-100 dark:bg-navy-800">
+              <div
+                style={{ width: `${Math.min(100, (totalSpent / totalAgreed) * 100)}%` }}
+                className="bg-emerald-500 transition-all"
+              />
+              <div
+                style={{ width: `${Math.max(0, Math.min(100 - (totalSpent / totalAgreed) * 100, ((totalAgreed - totalSpent) / totalAgreed) * 100))}%` }}
+                className="bg-amber-400 transition-all"
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-navy-500 dark:text-navy-400">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                {Math.round((totalSpent / totalAgreed) * 100)}% Paid
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                {Math.round((Math.max(0, totalAgreed - totalSpent) / totalAgreed) * 100)}% Pending
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Budget Summary */}
       {event.total_budget && (

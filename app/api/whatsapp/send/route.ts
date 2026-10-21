@@ -1,3 +1,4 @@
+import { rateLimit } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
@@ -20,6 +21,14 @@ export async function POST(req: NextRequest) {
   const { user, supabase } = await requireAuth();
   if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`wa:send:${user.id}`, 20, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { success: false, error: `Rate limit reached. Please retry in ${rl.resetInSeconds} seconds.` },
+      { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
+    );
   }
 
   const token = process.env.WHATSAPP_TOKEN;

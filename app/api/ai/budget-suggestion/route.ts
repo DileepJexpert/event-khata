@@ -1,3 +1,4 @@
+import { rateLimit } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
@@ -5,6 +6,14 @@ export async function POST(req: NextRequest) {
   const { user } = await requireAuth();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`ai:budget:${user.id}`, 10, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: `Too many AI requests. Please retry in ${rl.resetInSeconds} seconds.` },
+      { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } }
+    );
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

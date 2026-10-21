@@ -49,12 +49,8 @@ type ProposalData = {
 };
 
 function formatINR(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  const num = Math.round(Number(amount) || 0);
+  return 'Rs. ' + num.toLocaleString('en-IN');
 }
 
 function formatDateStr(dateString: string): string {
