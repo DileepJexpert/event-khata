@@ -41,25 +41,33 @@ export function formatCurrency(amount: number, currencyCode?: string): string {
   }).format(amount);
 }
 
+export const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  if (isNaN(date.getTime())) return dateString;
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = MONTH_NAMES[date.getMonth()];
+  const y = date.getFullYear();
+  return `${d} ${m} ${y}`;
 }
 
 export function formatDateTime(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  if (isNaN(date.getTime())) return dateString;
+  const d = String(date.getDate()).padStart(2, "0");
+  const m = MONTH_NAMES[date.getMonth()];
+  const y = date.getFullYear();
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const h12 = hours % 12 || 12;
+  return `${d} ${m} ${y}, ${h12}:${minutes} ${ampm}`;
 }
+
 
 export function formatTime(timeString: string): string {
   const [hours, minutes] = timeString.split(":");

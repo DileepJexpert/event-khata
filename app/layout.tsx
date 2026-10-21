@@ -42,7 +42,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <script dangerouslySetInnerHTML={{ __html: `try{const t=localStorage.getItem("ek-theme");const d=t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme:dark)").matches);if(d)document.documentElement.classList.add("dark")}catch(e){}` }} />
       </head>
-      <body className="font-sans">
+      <body className="font-sans" suppressHydrationWarning>
         <AppInit />
         <ThemeProvider>
           <ToastProvider>
