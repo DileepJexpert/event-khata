@@ -14,7 +14,7 @@ function formatAuthError(msg: string): string {
   if (!msg) return "";
   const lower = msg.toLowerCase();
   if (lower.includes("failed to fetch") || lower.includes("networkerror")) {
-    return "Cannot reach Supabase database at http://127.0.0.1:54321. Local Supabase container is stopped. Please open Docker Desktop and run: npx supabase start (or update NEXT_PUBLIC_SUPABASE_URL in .env.local).";
+    return "Unable to connect to the server. Please check your internet connection and try again.";
   }
   return msg;
 }
